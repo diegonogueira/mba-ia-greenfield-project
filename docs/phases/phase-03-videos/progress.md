@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 5/12 completed
+**SIs:** 6/12 completed
 
 ### SI-03.1 — Infra: Dependencies, Compose Services and FFmpeg Image
 - **Status:** completed
@@ -43,9 +43,12 @@
   - HTTP-level proof of the optional mode (anonymous / owner / invalid token) lives in the videos read E2E of SI-03.11, the first routes that use it.
 
 ### SI-03.6 — Endpoint POST /videos (draft pre-registration + upload session)
-- **Status:** pending
-- **Tests:** —
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 30 passing: video-slug.util.spec.ts 2, videos.service.spec.ts 9, videos.service.integration-spec.ts 1, channels.service.integration-spec.ts +2 (findByUserId), test/videos-create.e2e-spec.ts 6 (spec-derived from specs/videos-create.plan.md); full E2E 58/58
+- **Observations:**
+  - `toVideoResponse` (`src/videos/videos.mapper.ts`), planned for SI-03.11 action 4, was created here because `POST /videos` already returns the VideoResponse shape; SI-03.11 reuses it.
+  - E2E helpers in `test/helpers/videos-e2e.ts`: users are created confirmed in the DB and logged in through `POST /auth/login` (the real guard issues the token); presigned URLs are signed for the in-network MinIO host and jobs use the `bull-test` queue prefix.
+  - Drafts created by the tests (e.g. the 10 GiB one) leave empty multipart uploads in MinIO; MinIO expires stale incomplete uploads on its own (24 h default).
 
 ### SI-03.7 — Endpoints GET /videos/{slug}/upload and POST /videos/{slug}/upload/parts (resume)
 - **Status:** pending
