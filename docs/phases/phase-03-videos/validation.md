@@ -2,56 +2,71 @@
 kind: phase
 name: phase-03-videos
 status: dirty
-issue_count: 15
+issue_count: 0
 sources_mtime:
   docs/phases/phase-03-videos/context.md: "2026-09-30T14:54:35-03:00"
   docs/decisions/technical-decisions-phase-03-videos.md: "2026-09-30T13:48:53-03:00"
 issues:
   - id: AMB-1
-    status: open
+    status: resolved
     summary: "'rascunho' in Fase 03 vs draft→publication flow of Fase 04"
+    resolved_by: clarification
   - id: DG-1
-    status: open
+    status: resolved
     summary: "Phase 02 JWT guard has no optional-auth mode needed by TD-10 option A"
+    resolved_by: clarification
   - id: DG-2
-    status: open
+    status: resolved
     summary: ".env.example from phase 02 breaks docker compose .env parsing"
+    resolved_by: clarification
   - id: OQ-1
-    status: open
+    status: resolved
     summary: "TD-01 pending — Message Queue Technology"
+    resolved_by: phase-03-videos/TD-01
   - id: OQ-2
-    status: open
+    status: resolved
     summary: "TD-02 pending — Large File Upload Strategy (up to 10GB)"
+    resolved_by: phase-03-videos/TD-02
   - id: OQ-3
-    status: open
+    status: resolved
     summary: "TD-03 pending — Video Status Lifecycle and Processing Failure Policy"
+    resolved_by: phase-03-videos/TD-03
   - id: OQ-4
-    status: open
+    status: resolved
     summary: "TD-04 pending — Video Worker Runtime"
+    resolved_by: phase-03-videos/TD-04
   - id: OQ-5
-    status: open
+    status: resolved
     summary: "TD-05 pending — Media Metadata and Thumbnail Toolchain"
+    resolved_by: phase-03-videos/TD-05
   - id: OQ-6
-    status: open
+    status: resolved
     summary: "TD-06 pending — Unique Video URL Identifier"
+    resolved_by: phase-03-videos/TD-06
   - id: OQ-7
-    status: open
+    status: resolved
     summary: "TD-07 pending — Streaming and Download Delivery"
+    resolved_by: phase-03-videos/TD-07
   - id: OQ-8
-    status: open
+    status: resolved
     summary: "TD-08 pending — Object Storage Client Library"
+    resolved_by: phase-03-videos/TD-08
   - id: OQ-9
-    status: open
+    status: resolved
     summary: "TD-09 pending — Bucket Layout, Object Keys and Provisioning"
+    resolved_by: phase-03-videos/TD-09
   - id: OQ-10
-    status: open
+    status: resolved
     summary: "TD-10 pending — Access Policy for Video Reads"
+    resolved_by: phase-03-videos/TD-10
   - id: OQ-11
-    status: open
+    status: resolved
     summary: "TD-11 pending — Test Strategy for Storage, Queue and FFmpeg"
+    resolved_by: phase-03-videos/TD-11
   - id: OQ-12
-    status: open
+    status: resolved
     summary: "TD-12 pending — Canonical Environment Keys"
+    resolved_by: phase-03-videos/TD-12
 advisories: []
 ---
 
@@ -65,7 +80,7 @@ _None._
 
 ### Ambiguities
 
-- **AMB-1** — The capability "Pré-cadastro automático do vídeo como rascunho ao iniciar o upload" uses the word *rascunho*, while Fase 04 (neighbor) lists "Fluxo de rascunho → publicação" and "Visibilidade do vídeo: público ou unlisted". It is not stated whether the Fase 03 draft is the same state that Fase 04 later publishes (a processed video would stay "rascunho" until published) or only the pre-upload/pre-processing state of the file. The status enum, the transition to `ready` and who may read a processed video depend on this boundary. Explicit choice: (a) Fase 03 `status` describes only the upload/processing lifecycle (`draft` = pre-registered, file not yet complete); publication/visibility is a separate dimension that Fase 04 adds on top of `ready`; (b) `draft` persists after processing and Fase 03 must already model publication.
+_None._
 
 ### Missing Decisions
 
@@ -73,8 +88,7 @@ _None._
 
 ### Dependency Gaps
 
-- **DG-1** — TD-10 (pending) recommends that public read routes recognize the owner through an *optional* bearer token, but the global `JwtAuthGuard` delivered by phase-02-auth (`phase-02-auth/TD-02`, custom guard) only supports two modes: protected, or `@Public()` with no authentication at all. No prior phase delivers an optional-authentication mode. Explicit choice: (a) extend the phase 02 guard in this phase with an opt-in optional-auth mode (valid token → user attached; missing token → anonymous; invalid token → 401), covered by its own SI and tests; (b) choose a TD-10 option that does not need it.
-- **DG-2** — Fase 03 must bring new services up with `docker compose`, which interpolates variables from `nestjs-project/.env`. The `.env.example` delivered in phase 02 contains `MAIL_FROM="StreamTube" <noreply@streamtube.com>` (unquoted `<`/`>`), which makes `docker compose` abort with `unexpected character "<"` when `.env` is created from the example — the exact pitfall `nestjs-project/CLAUDE.md` → "Environment File Conventions" warns about. The new `S3_*`/`REDIS_*`/`VIDEO_*` keys also have to be added to that file. Explicit choice: (a) fix the example value (bare address, display name composed in `mail.config.ts` as the CLAUDE.md recommends) in the infrastructure SI of this phase; (b) leave it and document a manual workaround.
+_None._
 
 ### Inherited Constraint Conflicts
 
@@ -82,18 +96,7 @@ _None._
 
 ### Unresolved Open Questions
 
-- **OQ-1** — TD-01 pending — Message Queue Technology. Resolution: fill the **Decision:** field of TD-01 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-2** — TD-02 pending — Large File Upload Strategy (up to 10GB). Resolution: fill the **Decision:** field of TD-02 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-3** — TD-03 pending — Video Status Lifecycle and Processing Failure Policy. Resolution: fill the **Decision:** field of TD-03 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-4** — TD-04 pending — Video Worker Runtime. Resolution: fill the **Decision:** field of TD-04 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-5** — TD-05 pending — Media Metadata and Thumbnail Toolchain. Resolution: fill the **Decision:** field of TD-05 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-6** — TD-06 pending — Unique Video URL Identifier. Resolution: fill the **Decision:** field of TD-06 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-7** — TD-07 pending — Streaming and Download Delivery. Resolution: fill the **Decision:** field of TD-07 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-8** — TD-08 pending — Object Storage Client Library. Resolution: fill the **Decision:** field of TD-08 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-9** — TD-09 pending — Bucket Layout, Object Keys and Provisioning. Resolution: fill the **Decision:** field of TD-09 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-10** — TD-10 pending — Access Policy for Video Reads (metadata, stream, download, thumbnail). Resolution: fill the **Decision:** field of TD-10 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-11** — TD-11 pending — Test Strategy for Storage, Queue and FFmpeg. Resolution: fill the **Decision:** field of TD-11 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
-- **OQ-12** — TD-12 pending — Canonical Environment Keys for Storage, Queue and Worker. Resolution: fill the **Decision:** field of TD-12 in `docs/decisions/technical-decisions-phase-03-videos.md`, then re-run /plan-validate 3.
+_None._
 
 ### UI Coverage Gaps
 
@@ -101,4 +104,18 @@ _None._
 
 ## Resolved Issues
 
-_No issues resolved yet._
+- **AMB-1** _(resolved_by clarification)_ — 'rascunho' in Fase 03 vs draft→publication flow of Fase 04 — user chose (a): Fase 03 `status` describes only the upload/processing lifecycle (`draft` = pre-registered, file not complete yet); publication/visibility is a separate dimension that Fase 04 adds on top of `ready`.
+- **DG-1** _(resolved_by clarification)_ — Phase 02 JWT guard has no optional-auth mode — user chose (a): extend the global guard in this phase with an opt-in optional-auth mode (valid token → user attached; no token → anonymous; invalid token → 401), with its own SI and tests.
+- **DG-2** _(resolved_by clarification)_ — .env.example from phase 02 breaks docker compose `.env` parsing — user chose (a): fix it in the infrastructure SI (bare address in `.env.example`, display name composed in `mail.config.ts`).
+- **OQ-1** _(resolved_by phase-03-videos/TD-01)_ — TD-01 decided: Message Queue Technology — A (BullMQ + Redis).
+- **OQ-2** _(resolved_by phase-03-videos/TD-02)_ — TD-02 decided: Large File Upload Strategy — B (S3 multipart with presigned part URLs).
+- **OQ-3** _(resolved_by phase-03-videos/TD-03)_ — TD-03 decided: Video Status Lifecycle and Processing Failure Policy — A.
+- **OQ-4** _(resolved_by phase-03-videos/TD-04)_ — TD-04 decided: Video Worker Runtime — A.
+- **OQ-5** _(resolved_by phase-03-videos/TD-05)_ — TD-05 decided: Media Metadata and Thumbnail Toolchain — A.
+- **OQ-6** _(resolved_by phase-03-videos/TD-06)_ — TD-06 decided: Unique Video URL Identifier — B.
+- **OQ-7** _(resolved_by phase-03-videos/TD-07)_ — TD-07 decided: Streaming and Download Delivery — B.
+- **OQ-8** _(resolved_by phase-03-videos/TD-08)_ — TD-08 decided: Object Storage Client Library — A (AWS SDK v3).
+- **OQ-9** _(resolved_by phase-03-videos/TD-09)_ — TD-09 decided: Bucket Layout, Object Keys and Provisioning — A.
+- **OQ-10** _(resolved_by phase-03-videos/TD-10)_ — TD-10 decided: Access Policy for Video Reads — A.
+- **OQ-11** _(resolved_by phase-03-videos/TD-11)_ — TD-11 decided: Test Strategy for Storage, Queue and FFmpeg — A.
+- **OQ-12** _(resolved_by phase-03-videos/TD-12)_ — TD-12 decided: Canonical Environment Keys — A.

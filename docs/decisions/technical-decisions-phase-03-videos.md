@@ -1,7 +1,7 @@
 ---
 scope_type: phase
 related_phases: [3]
-status: pending
+status: decided
 date: 2026-09-30
 scope_description: "Backend foundation for video upload and processing: object storage usage (S3/MinIO), background queue technology, direct-to-storage upload of files up to 10GB, draft pre-registration and status lifecycle, FFmpeg worker for metadata and thumbnail, unique video URL, streaming and download delivery."
 ---
@@ -44,7 +44,8 @@ _Subprojects in scope:_
 
 **Recommendation:** BullMQ + Redis — it is the queue integration documented by NestJS (`@nestjs/bullmq`) and gives attempts, exponential backoff, `UnrecoverableError` and `jobId` deduplication out of the box, which TD-03 relies on; Redis is a small dedicated container, so the queue becomes a real Compose service as the architecture diagram expects, instead of sharing load with PostgreSQL (pg-boss) or hand-building retry topologies (RabbitMQ).
 
-**Decision:** _[pending]_
+**Decision:** A (BullMQ + Redis)
+**Libraries:** `@nestjs/bullmq@^12.0.0`, `bullmq@^6.3.10`
 
 ---
 
@@ -75,7 +76,8 @@ _Subprojects in scope:_
 
 **Recommendation:** S3 multipart with presigned part URLs — the only option in which the API never carries the 10GB body, with native resume (list parts + re-sign) and no extra server. Parameters: max file size 10 GiB (10737418240 bytes), part size 64 MiB (≤ 160 parts, well within S3's 10,000-part and 5 MiB-minimum limits), part URL TTL 1 hour; the API completes the upload from the storage's own part listing (ListParts) and checks that all expected parts are present and that their total equals the declared size before calling CompleteMultipartUpload.
 
-**Decision:** _[pending]_
+**Decision:** B (S3 multipart with presigned part URLs)
+**Libraries:** —
 
 ---
 
@@ -106,7 +108,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option A — a single guarded enum keeps the draft pre-registration and the processing lifecycle observable in one column, while BullMQ retries (TD-01) absorb transient failures and `UnrecoverableError` stops retrying media that FFmpeg cannot read; the compare-and-set guard makes the at-least-once delivery harmless.
 
-**Decision:** _[pending]_
+**Decision:** A (Single guarded status enum + queue retries + terminal `failed`)
+**Libraries:** —
 
 ---
 
@@ -137,7 +140,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option A — the worker is a real separate container as in the diagram, while reusing the NestJS modules already in `nestjs-project/` (a new subproject would duplicate them); the processor lives only in `WorkerModule`, so the API never consumes jobs.
 
-**Decision:** _[pending]_
+**Decision:** A (Separate container, same codebase, dedicated entrypoint)
+**Libraries:** —
 
 ---
 
@@ -168,7 +172,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option A — reading through a short-lived presigned URL lets FFmpeg seek without copying up to 10GB to the worker disk, and avoids the deprecated `fluent-ffmpeg`. Thumbnail = one JPEG frame at 10% of the duration (0 s for streams without duration), scaled to at most 1280 px wide; metadata stored: duration (s), width, height, video/audio codec, container format, bit rate, frame rate. A file with no video stream is invalid media (unrecoverable, TD-03).
 
-**Decision:** _[pending]_
+**Decision:** A (System ffprobe/ffmpeg via execFile over presigned URL)
+**Libraries:** —
 
 ---
 
@@ -199,7 +204,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option B — 64 random bits make collisions practically impossible, the unique index guarantees "sem conflito" even in that case (retry on `23505`, same pattern as channel nicknames in phase 02), and the slug is short and not enumerable.
 
-**Decision:** _[pending]_
+**Decision:** B (Random 11-char base64url slug + unique constraint + retry)
+**Libraries:** —
 
 ---
 
@@ -230,7 +236,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option B — the storage serves range requests natively, so streaming and download cost the API one redirect instead of the full transfer, matching the "Frontend → streams from Object Storage" relation of the diagram. Playback/download URL TTL: 6 hours (long videos keep issuing range requests during playback). Presigned URLs handed to clients are signed against `S3_PUBLIC_ENDPOINT`; server-side calls (API, worker) use `S3_ENDPOINT` (Compose service name).
 
-**Decision:** _[pending]_
+**Decision:** B (302 redirect to short-lived presigned GET URL)
+**Libraries:** —
 
 ---
 
@@ -256,7 +263,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option A — the AWS SDK v3 speaks the production API natively and exposes the multipart + presign primitives TD-02 and TD-07 need; MinIO is reached by pointing `endpoint` at it with path-style addressing.
 
-**Decision:** _[pending]_
+**Decision:** A (AWS SDK v3)
+**Libraries:** `@aws-sdk/client-s3@^3.1143.0`, `@aws-sdk/s3-request-presigner@^3.1143.0`
 
 ---
 
@@ -285,7 +293,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option A — one private bucket with id-derived keys keeps API and worker in agreement without extra config, and a one-shot init container keeps provisioning in infrastructure. Everything stays private; clients only get presigned URLs (TD-07).
 
-**Decision:** _[pending]_
+**Decision:** A (One private bucket, prefixes per asset, init container)
+**Libraries:** —
 
 ---
 
@@ -315,7 +324,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option A — it delivers streaming/download to any viewer with the unique URL without exposing unfinished uploads; write operations (upload session, complete) stay owner-only behind the global JWT guard. Phase 04 will layer publication/visibility on top of `status = ready`.
 
-**Decision:** _[pending]_
+**Decision:** A (Ready videos readable via slug; non-ready owner-only)
+**Libraries:** —
 
 ---
 
@@ -341,7 +351,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option A — the upload protocol (TD-02) and delivery (TD-07) only exist on a real S3 API, so a filesystem adapter would leave the core of the phase untested; `nestjs-project/CLAUDE.md` already requires tests to run inside the Compose stack. The testing guide's external-systems reference is updated to reflect it.
 
-**Decision:** _[pending]_
+**Decision:** A (Real MinIO, Redis and FFmpeg from Compose, with test isolation)
+**Libraries:** —
 
 ---
 
@@ -366,7 +377,8 @@ _Subprojects in scope:_
 
 **Recommendation:** Option A — provider-neutral names keep the MinIO → S3 swap a pure configuration change, and separating `S3_ENDPOINT` (in-network) from `S3_PUBLIC_ENDPOINT` (client-facing) is what makes presigned URLs usable from outside the Docker network without breaking the "service name as host" rule for service-to-service traffic.
 
-**Decision:** _[pending]_
+**Decision:** A (Namespaced `S3_*`, `REDIS_*`, `VIDEO_*` keys)
+**Libraries:** —
 
 ---
 
@@ -374,15 +386,15 @@ _Subprojects in scope:_
 
 | ID | Scope | Decision | Recommendation | Choice |
 |----|-------|----------|---------------|--------|
-| TD-01 | Backend | Message Queue Technology | A — BullMQ + Redis (`@nestjs/bullmq`) | _[pending]_ |
-| TD-02 | Cross-layer | Large File Upload Strategy (up to 10GB) | B — S3 multipart with presigned part URLs | _[pending]_ |
-| TD-03 | Backend | Video Status Lifecycle and Processing Failure Policy | A — single guarded enum + queue retries + terminal `failed` | _[pending]_ |
-| TD-04 | Backend | Video Worker Runtime | A — separate container, same codebase, dedicated entrypoint | _[pending]_ |
-| TD-05 | Backend | Media Metadata and Thumbnail Toolchain | A — system ffprobe/ffmpeg via execFile over presigned URL | _[pending]_ |
-| TD-06 | Cross-layer | Unique Video URL Identifier | B — random 11-char base64url slug + unique index + retry | _[pending]_ |
-| TD-07 | Cross-layer | Streaming and Download Delivery | B — 302 to short-lived presigned GET URL | _[pending]_ |
-| TD-08 | Backend | Object Storage Client Library | A — AWS SDK v3 | _[pending]_ |
-| TD-09 | Repo-wide | Bucket Layout, Object Keys and Provisioning | A — one private bucket, id-derived keys, init container | _[pending]_ |
-| TD-10 | Backend | Access Policy for Video Reads | A — ready = readable via slug; non-ready = owner only | _[pending]_ |
-| TD-11 | Backend | Test Strategy for Storage, Queue and FFmpeg | A — real Compose services with test isolation | _[pending]_ |
-| TD-12 | Repo-wide | Canonical Environment Keys | A — `S3_*`, `REDIS_*`, `VIDEO_*` with service-name hosts | _[pending]_ |
+| TD-01 | Backend | Message Queue Technology | A — BullMQ + Redis (`@nestjs/bullmq`) | A |
+| TD-02 | Cross-layer | Large File Upload Strategy (up to 10GB) | B — S3 multipart with presigned part URLs | B |
+| TD-03 | Backend | Video Status Lifecycle and Processing Failure Policy | A — single guarded enum + queue retries + terminal `failed` | A |
+| TD-04 | Backend | Video Worker Runtime | A — separate container, same codebase, dedicated entrypoint | A |
+| TD-05 | Backend | Media Metadata and Thumbnail Toolchain | A — system ffprobe/ffmpeg via execFile over presigned URL | A |
+| TD-06 | Cross-layer | Unique Video URL Identifier | B — random 11-char base64url slug + unique index + retry | B |
+| TD-07 | Cross-layer | Streaming and Download Delivery | B — 302 to short-lived presigned GET URL | B |
+| TD-08 | Backend | Object Storage Client Library | A — AWS SDK v3 | A |
+| TD-09 | Repo-wide | Bucket Layout, Object Keys and Provisioning | A — one private bucket, id-derived keys, init container | A |
+| TD-10 | Backend | Access Policy for Video Reads | A — ready = readable via slug; non-ready = owner only | A |
+| TD-11 | Backend | Test Strategy for Storage, Queue and FFmpeg | A — real Compose services with test isolation | A |
+| TD-12 | Repo-wide | Canonical Environment Keys | A — `S3_*`, `REDIS_*`, `VIDEO_*` with service-name hosts | A |
