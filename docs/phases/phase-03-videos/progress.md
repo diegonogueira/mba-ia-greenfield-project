@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 1/12 completed
+**SIs:** 2/12 completed
 
 ### SI-03.1 — Infra: Dependencies, Compose Services and FFmpeg Image
 - **Status:** completed
@@ -15,9 +15,10 @@
   - Local-only: host ports 5432/6379 were taken by other projects on this machine; an uncommitted `compose.override.yaml` remaps them. Container-to-container traffic is unaffected.
 
 ### SI-03.2 — Configuration Namespaces for Storage, Queue and Video
-- **Status:** pending
-- **Tests:** —
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 13 passing (env.validation.integration-spec.ts: 9, swagger.config.spec.ts: 4 regression)
+- **Observations:**
+  - Existing `requiredEnv` fixture of the env validation spec now includes the two required S3 credentials.
 
 ### SI-03.3 — Storage Module (S3 client, multipart and presigned URLs)
 - **Status:** pending
