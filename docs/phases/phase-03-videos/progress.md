@@ -16,7 +16,7 @@
 
 ### SI-03.2 — Configuration Namespaces for Storage, Queue and Video
 - **Status:** completed
-- **Tests:** 13 passing (env.validation.integration-spec.ts: 9, swagger.config.spec.ts: 4 regression)
+- **Tests:** 13 passing (env.validation.integration-spec.ts: 10, swagger.config.spec.ts: 3 regression)
 - **Observations:**
   - Existing `requiredEnv` fixture of the env validation spec now includes the two required S3 credentials.
 
