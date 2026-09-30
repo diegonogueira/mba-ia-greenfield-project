@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 9/12 completed
+**SIs:** 10/12 completed
 
 ### SI-03.1 — Infra: Dependencies, Compose Services and FFmpeg Image
 - **Status:** completed
@@ -75,9 +75,14 @@
   - Sample videos are generated at test time by `src/test/sample-video.ts` (`ffmpeg -f lavfi`); nothing binary is committed.
 
 ### SI-03.10 — Video Worker: Processor, Entrypoint and Compose Service
-- **Status:** pending
-- **Tests:** —
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 11 passing: video.processor.spec.ts 6, video.processor.integration-spec.ts 3 (real DB + MinIO + ffmpeg: ready with metadata/thumbnail, invalid media → failed, redelivery no-op), worker.module.spec.ts 2 (worker graph resolves the processor; AppModule does not); full suites 227/227 and 67/67 E2E
+- **Observations:**
+  - `docker compose up -d` starts `video-worker` (`npm run start:worker:dev`); its log shows the Nest application context and `Video worker started`, with no HTTP listener.
+  - Worker concurrency is applied in `onApplicationBootstrap` (`this.worker.concurrency = VIDEO_WORKER_CONCURRENCY`), because the `@Processor` options are fixed when the class is decorated.
+  - Shared root setup extracted so API and worker cannot drift: `src/config/config.factories.ts` (config namespaces), `src/database/typeorm-root.module.ts` (TypeORM root) and the existing `bullRootModule()`; `AppModule` now uses them, with the same behavior.
+  - `WorkerModule` also imports `UsersModule`: with `autoLoadEntities`, `Channel`'s relation to `User` needs the `User` entity registered, otherwise TypeORM refuses to start (seen on the first worker boot).
+  - `tsconfig.worker.json` compiles the worker to `dist-worker/`; `dist-worker` was added to the `exclude` of `tsconfig.json`/`tsconfig.build.json` and to `.gitignore` (without it tsc read its own `.d.ts` output as input).
 
 ### SI-03.11 — Endpoints GET /videos/{slug}, /stream, /download, /thumbnail
 - **Status:** pending

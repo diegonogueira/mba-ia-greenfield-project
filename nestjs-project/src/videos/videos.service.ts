@@ -27,12 +27,13 @@ import type {
   UploadSessionDto,
   VideoResponseDto,
 } from './dto/video-response.dto';
-import { Video } from './entities/video.entity';
+import { Video, VideoMetadata } from './entities/video.entity';
 import { generateVideoSlug } from './video-slug.util';
 import {
   PROCESS_VIDEO_JOB,
   PROCESS_VIDEO_JOB_OPTIONS,
   ProcessVideoJobData,
+  VIDEO_FAILURE_REASON_MAX_LENGTH,
   VIDEO_PROCESSING_QUEUE,
   VideoStatus,
 } from './videos.constants';
@@ -46,6 +47,12 @@ function isSlugConflict(err: unknown): boolean {
   if (!(err instanceof QueryFailedError)) return false;
   const e = err as QueryFailedError & { code?: string; detail?: string };
   return e.code === PG_UNIQUE_VIOLATION && !!e.detail?.includes('slug');
+}
+
+export interface ProcessingResult {
+  durationSeconds: number | null;
+  metadata: VideoMetadata;
+  thumbnailKey: string;
 }
 
 export function computePartCount(sizeBytes: number, partSize: number): number {
@@ -233,6 +240,39 @@ export class VideosService {
     if (!complete) {
       throw new UploadIncompleteException();
     }
+  }
+
+  async findById(id: string): Promise<Video | null> {
+    return this.videosRepository.findById(id);
+  }
+
+  /** Worker success: processing → ready. Returns false when the video was not processing. */
+  async markReady(id: string, result: ProcessingResult): Promise<boolean> {
+    return this.videosRepository.transitionStatus(
+      id,
+      VideoStatus.PROCESSING,
+      VideoStatus.READY,
+      {
+        duration_seconds: result.durationSeconds,
+        metadata: result.metadata,
+        thumbnail_key: result.thumbnailKey,
+        failure_reason: null,
+        processed_at: new Date(),
+      },
+    );
+  }
+
+  /** Worker failure (invalid media or retries exhausted): processing → failed. */
+  async markFailed(id: string, reason: string): Promise<boolean> {
+    return this.videosRepository.transitionStatus(
+      id,
+      VideoStatus.PROCESSING,
+      VideoStatus.FAILED,
+      {
+        failure_reason: reason.slice(0, VIDEO_FAILURE_REASON_MAX_LENGTH),
+        processed_at: new Date(),
+      },
+    );
   }
 
   /** Owner-only lookup of a video whose upload is still open (`draft`). */
