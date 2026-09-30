@@ -10,6 +10,7 @@ import {
   InvalidPartNumberException,
   UploadIncompleteException,
   VideoNotFoundException,
+  VideoNotReadyException,
   VideoUploadNotActiveException,
 } from '../common/exceptions/domain.exception';
 import videoConfig from '../config/video.config';
@@ -19,6 +20,7 @@ import {
   StorageUploadNotFoundError,
 } from '../storage/storage.errors';
 import { videoObjectKey } from '../storage/storage.keys';
+import type { JwtPayload } from '../auth/auth.types';
 import type { UploadedPart } from '../storage/storage.types';
 import type { CreateVideoDto } from './dto/create-video.dto';
 import type { UploadStatusDto } from './dto/upload-status.dto';
@@ -163,8 +165,8 @@ export class VideosService {
 
   /**
    * Completes the multipart upload from the storage's own part listing, moves
-   * the video draft → processing and enqueues the processing job. Status change
-   * and enqueue share one transaction: a failed enqueue keeps the video draft.
+   * the video draft → processing and enqueues the processing job. A failed
+   * enqueue moves the video back to draft.
    */
   async completeUpload(
     slug: string,
@@ -173,23 +175,34 @@ export class VideosService {
     const video = await this.findOwnedDraft(slug, userId);
     await this.completeStorageUpload(video);
 
-    await this.dataSource.transaction(async (manager) => {
-      const changed = await this.videosRepository.transitionStatus(
-        video.id,
-        VideoStatus.DRAFT,
-        VideoStatus.PROCESSING,
-        { upload_id: null },
-        manager,
-      );
-      if (!changed) {
-        throw new VideoUploadNotActiveException();
-      }
+    // Commit the status change before publishing: a job delivered before the
+    // commit would find the video still in draft.
+    const changed = await this.videosRepository.transitionStatus(
+      video.id,
+      VideoStatus.DRAFT,
+      VideoStatus.PROCESSING,
+      { upload_id: null },
+    );
+    if (!changed) {
+      throw new VideoUploadNotActiveException();
+    }
+    try {
       await this.processingQueue.add(
         PROCESS_VIDEO_JOB,
         { videoId: video.id },
         { jobId: video.id, ...PROCESS_VIDEO_JOB_OPTIONS },
       );
-    });
+    } catch (err) {
+      // Compensation: without a job the video would stay in processing forever;
+      // back to draft (the upload is kept) so the client can call complete again.
+      await this.videosRepository.transitionStatus(
+        video.id,
+        VideoStatus.PROCESSING,
+        VideoStatus.DRAFT,
+        { upload_id: video.upload_id },
+      );
+      throw err;
+    }
 
     const updated = await this.videosRepository.findById(video.id);
     return toVideoResponse(updated!);
@@ -240,6 +253,69 @@ export class VideosService {
     if (!complete) {
       throw new UploadIncompleteException();
     }
+  }
+
+  /** Metadata of a video visible to the viewer (anonymous when `viewer` is undefined). */
+  async getVideo(
+    slug: string,
+    viewer?: JwtPayload,
+  ): Promise<VideoResponseDto> {
+    return toVideoResponse(await this.findVisible(slug, viewer));
+  }
+
+  /** Presigned URL for playback (inline, range requests) or download (attachment). */
+  async getPlaybackUrl(
+    slug: string,
+    viewer: JwtPayload | undefined,
+    mode: 'stream' | 'download',
+  ): Promise<string> {
+    const video = await this.findReadyForViewer(slug, viewer);
+    return this.storage.presignGetObject(video.video_key, {
+      ttlSeconds: this.videoCfg.playbackUrlTtlSeconds,
+      audience: 'public',
+      downloadFileName: mode === 'download' ? video.original_filename : undefined,
+    });
+  }
+
+  async getThumbnailUrl(
+    slug: string,
+    viewer: JwtPayload | undefined,
+  ): Promise<string> {
+    const video = await this.findReadyForViewer(slug, viewer);
+    if (!video.thumbnail_key) {
+      throw new VideoNotReadyException();
+    }
+    return this.storage.presignGetObject(video.thumbnail_key, {
+      ttlSeconds: this.videoCfg.playbackUrlTtlSeconds,
+      audience: 'public',
+    });
+  }
+
+  /**
+   * `ready` videos are visible to anyone holding the slug; other statuses only
+   * to the owner. Everyone else gets VIDEO_NOT_FOUND (existence is not revealed).
+   */
+  private async findVisible(slug: string, viewer?: JwtPayload): Promise<Video> {
+    const video = await this.videosRepository.findBySlug(slug);
+    if (!video) {
+      throw new VideoNotFoundException();
+    }
+    const isOwner = !!viewer && video.channel.user_id === viewer.sub;
+    if (video.status !== VideoStatus.READY && !isOwner) {
+      throw new VideoNotFoundException();
+    }
+    return video;
+  }
+
+  private async findReadyForViewer(
+    slug: string,
+    viewer?: JwtPayload,
+  ): Promise<Video> {
+    const video = await this.findVisible(slug, viewer);
+    if (video.status !== VideoStatus.READY) {
+      throw new VideoNotReadyException();
+    }
+    return video;
   }
 
   async findById(id: string): Promise<Video | null> {

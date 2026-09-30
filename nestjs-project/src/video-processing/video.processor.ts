@@ -55,6 +55,11 @@ export class VideoProcessor
     if (!video) {
       throw new UnrecoverableError(`Video ${videoId} not found`);
     }
+    if (video.status === VideoStatus.DRAFT) {
+      // The API commits draft → processing before enqueueing; a draft here means
+      // that transition was compensated or not visible yet. Retry later.
+      throw new Error(`Video ${videoId} is not ready for processing yet`);
+    }
     if (video.status !== VideoStatus.PROCESSING) {
       // At-least-once delivery: a repeated job for a finished video is a no-op.
       this.logger.log(`Skipping video ${videoId} in status ${video.status}`);

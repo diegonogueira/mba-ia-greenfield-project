@@ -5,6 +5,7 @@ import {
   InvalidPartNumberException,
   UploadIncompleteException,
   VideoNotFoundException,
+  VideoNotReadyException,
   VideoUploadNotActiveException,
 } from '../common/exceptions/domain.exception';
 import type { CreateVideoDto } from './dto/create-video.dto';
@@ -68,6 +69,7 @@ function setup() {
     listParts: jest.fn().mockResolvedValue([]),
     completeMultipartUpload: jest.fn().mockResolvedValue(undefined),
     headObject: jest.fn().mockResolvedValue(null),
+    presignGetObject: jest.fn().mockResolvedValue('https://signed'),
     presignUploadParts: jest.fn(
       async (_k: string, _u: string, parts: number[]) =>
         parts.map((partNumber) => ({ partNumber, url: `u${partNumber}` })),
@@ -286,7 +288,6 @@ describe('VideosService.completeUpload', () => {
       VideoStatus.DRAFT,
       VideoStatus.PROCESSING,
       { upload_id: null },
-      expect.anything(),
     );
     expect(queue.add).toHaveBeenCalledWith(
       'process-video',
@@ -348,12 +349,116 @@ describe('VideosService.completeUpload', () => {
     expect(queue.add).not.toHaveBeenCalled();
   });
 
-  it('propagates an enqueue failure (the transaction rolls the status back)', async () => {
-    const { service, queue } = ready();
+  it('commits processing before enqueueing (a fast worker must not see draft)', async () => {
+    const { service, videosRepository, queue } = ready();
+    const order: string[] = [];
+    videosRepository.transitionStatus.mockImplementation(async () => {
+      order.push('status');
+      return true;
+    });
+    queue.add.mockImplementation(async () => {
+      order.push('enqueue');
+      return { id: 'job' };
+    });
+
+    await service.completeUpload('slug0000001', 'user-1');
+
+    expect(order).toEqual(['status', 'enqueue']);
+  });
+
+  it('moves the video back to draft when the enqueue fails, then rethrows', async () => {
+    const { service, videosRepository, queue } = ready();
     queue.add.mockRejectedValue(new Error('redis down'));
 
     await expect(
       service.completeUpload('slug0000001', 'user-1'),
     ).rejects.toThrow('redis down');
+    expect(videosRepository.transitionStatus).toHaveBeenLastCalledWith(
+      'video-1',
+      VideoStatus.PROCESSING,
+      VideoStatus.DRAFT,
+      { upload_id: 'upload-1' },
+    );
+  });
+});
+
+describe('VideosService reads (visibility)', () => {
+  const owner = { sub: 'user-1', email: 'o@example.com' };
+  const stranger = { sub: 'user-2', email: 's@example.com' };
+  const statuses = Object.values(VideoStatus);
+
+  function withVideo(status: VideoStatus) {
+    const ctx = setup();
+    ctx.videosRepository.findBySlug.mockResolvedValue(
+      makeVideo({
+        status,
+        original_filename: 'holiday.mp4',
+        thumbnail_key: status === VideoStatus.READY ? 'thumbnails/video-1.jpg' : null,
+      }),
+    );
+    return ctx;
+  }
+
+  it.each(statuses)('owner sees a %s video', async (status) => {
+    const { service } = withVideo(status);
+    await expect(service.getVideo('slug0000001', owner)).resolves.toMatchObject({
+      status,
+    });
+  });
+
+  it.each(statuses.filter((s) => s !== VideoStatus.READY))(
+    'anonymous and non-owner get VIDEO_NOT_FOUND for a %s video',
+    async (status) => {
+      const { service } = withVideo(status);
+      await expect(service.getVideo('slug0000001')).rejects.toBeInstanceOf(
+        VideoNotFoundException,
+      );
+      await expect(
+        service.getVideo('slug0000001', stranger),
+      ).rejects.toBeInstanceOf(VideoNotFoundException);
+    },
+  );
+
+  it('anyone sees a ready video', async () => {
+    const { service } = withVideo(VideoStatus.READY);
+    await expect(service.getVideo('slug0000001')).resolves.toMatchObject({
+      status: VideoStatus.READY,
+    });
+  });
+
+  it('owner gets VIDEO_NOT_READY when streaming a processing video', async () => {
+    const { service } = withVideo(VideoStatus.PROCESSING);
+    await expect(
+      service.getPlaybackUrl('slug0000001', owner, 'stream'),
+    ).rejects.toBeInstanceOf(VideoNotReadyException);
+  });
+
+  it('signs an inline URL for streaming and an attachment for download', async () => {
+    const { service, storage } = withVideo(VideoStatus.READY);
+
+    await service.getPlaybackUrl('slug0000001', undefined, 'stream');
+    await service.getPlaybackUrl('slug0000001', undefined, 'download');
+
+    expect(storage.presignGetObject).toHaveBeenNthCalledWith(
+      1,
+      'videos/video-1/original',
+      { ttlSeconds: 21600, audience: 'public', downloadFileName: undefined },
+    );
+    expect(storage.presignGetObject).toHaveBeenNthCalledWith(
+      2,
+      'videos/video-1/original',
+      { ttlSeconds: 21600, audience: 'public', downloadFileName: 'holiday.mp4' },
+    );
+  });
+
+  it('signs the thumbnail key for a ready video', async () => {
+    const { service, storage } = withVideo(VideoStatus.READY);
+
+    await service.getThumbnailUrl('slug0000001', undefined);
+
+    expect(storage.presignGetObject).toHaveBeenCalledWith(
+      'thumbnails/video-1.jpg',
+      { ttlSeconds: 21600, audience: 'public' },
+    );
   });
 });

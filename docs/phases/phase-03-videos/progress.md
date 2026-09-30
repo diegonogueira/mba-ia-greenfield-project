@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 10/12 completed
+**SIs:** 11/12 completed
 
 ### SI-03.1 — Infra: Dependencies, Compose Services and FFmpeg Image
 - **Status:** completed
@@ -85,9 +85,12 @@
   - `tsconfig.worker.json` compiles the worker to `dist-worker/`; `dist-worker` was added to the `exclude` of `tsconfig.json`/`tsconfig.build.json` and to `.gitignore` (without it tsc read its own `.d.ts` output as input).
 
 ### SI-03.11 — Endpoints GET /videos/{slug}, /stream, /download, /thumbnail
-- **Status:** pending
-- **Tests:** —
-- **Observations:** none
+- **Status:** completed
+- **Tests:** videos.service.spec.ts +12 (visibility matrix, VIDEO_NOT_READY, inline vs attachment signing, thumbnail) and +2 on completeUpload (commit before enqueue, compensation); video.processor.spec.ts +1 (draft → retry); test/videos-read.e2e-spec.ts 6 (full pipeline upload → queue → processor → ready, 206 range, attachment download, JPEG thumbnail, visibility, invalid token, response shape); full suites 240/240 and 73/73 E2E, the videos E2E run 3 times in a row without failures
+- **Observations:**
+  - Bug found by this SI's E2E and fixed in SI-03.8's code: enqueueing inside the still-open `draft → processing` transaction let the worker pick the job before the commit, read `draft` and skip it, leaving the video `processing` forever (the job showed `completed`). `completeUpload` now commits the status first, then enqueues; if the enqueue fails, a compensating compare-and-set moves the video back to `draft` (the observable outcome the plan specified). The processor also treats `draft` as retryable instead of skipping it. The plan's Events/Messages producer line carries a "corrected during SI-03.11" note.
+  - `@SkipThrottle()` on `VideosController`: the phase 02 `ThrottlerGuard` is an `APP_GUARD` (global), so without it every video route (reads, polling, upload session) was capped at 10 req/min per IP, which is what made the first pipeline E2E fail (HTTP 429). This follows `phase-02-auth/TD-08`, which scopes rate limiting to the auth endpoints.
+  - Host-level smoke with the real stack (API dev server, `video-worker` container, MinIO on `localhost:9000`), 80 MB clip: `POST /videos` → 2 parts of 64 MiB, both `PUT`s straight to `localhost:9000` → 200; `GET .../upload` → parts [1, 2]; complete → `processing`; the container worker moved it to `ready` with duration 45 s, 1280x720 h264/aac; `/stream` → 302 to `localhost:9000`, `Range: bytes=0-1048575` → `206` `Content-Range: bytes 0-1048575/80140966`; `/download` → `Content-Disposition: attachment; filename=\"smoke.mp4\"`; `/thumbnail` → `image/jpeg` 1280x720.
 
 ### SI-03.12 — OpenAPI Artifact and AI Documentation Update
 - **Status:** pending

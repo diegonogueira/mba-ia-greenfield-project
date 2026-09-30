@@ -85,6 +85,17 @@ describe('VideoProcessor', () => {
     expect(videosService.markFailed).not.toHaveBeenCalled();
   });
 
+  it('retries (plain error, no side effects) when the video is still draft', async () => {
+    const { processor, videosService, media } = setup(VideoStatus.DRAFT);
+
+    const error = await processor.process(makeJob()).catch((e: Error) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(UnrecoverableError);
+    expect(media.probe).not.toHaveBeenCalled();
+    expect(videosService.markFailed).not.toHaveBeenCalled();
+  });
+
   it('fails without retries when the video row does not exist', async () => {
     const { processor, videosService } = setup();
     videosService.findById.mockResolvedValue(null);
