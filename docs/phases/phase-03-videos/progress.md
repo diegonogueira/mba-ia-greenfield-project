@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 8/12 completed
+**SIs:** 9/12 completed
 
 ### SI-03.1 — Infra: Dependencies, Compose Services and FFmpeg Image
 - **Status:** completed
@@ -67,9 +67,12 @@
   - The completion is retry-safe: if the storage already completed the upload (`NoSuchUpload`) but the status did not change, a retry checks the object size and proceeds. Covered by the integration test.
 
 ### SI-03.9 — Media Probe Service (ffprobe metadata + ffmpeg thumbnail)
-- **Status:** pending
-- **Tests:** —
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 12 passing: media-probe.service.spec.ts 8 (mapping + timestamp rules), media-probe.service.integration-spec.ts 4 (real ffprobe/ffmpeg reading a presigned MinIO URL)
+- **Observations:**
+  - `InvalidMediaError` lives in `src/video-processing/media.errors.ts`; ffprobe/ffmpeg failures to read the input are mapped to it (non-retryable per TD-03).
+  - Frame rate prefers `avg_frame_rate` and falls back to `r_frame_rate` (some containers report `0/0` as the average).
+  - Sample videos are generated at test time by `src/test/sample-video.ts` (`ffmpeg -f lavfi`); nothing binary is committed.
 
 ### SI-03.10 — Video Worker: Processor, Entrypoint and Compose Service
 - **Status:** pending
