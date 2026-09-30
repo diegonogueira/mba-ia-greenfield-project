@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 4/12 completed
+**SIs:** 5/12 completed
 
 ### SI-03.1 — Infra: Dependencies, Compose Services and FFmpeg Image
 - **Status:** completed
@@ -37,9 +37,10 @@
   - Fixed the phase 02 migration spec flaw noted in SI-03.1: it now also drops the enum types, and runs the DROPs one at a time (concurrent `DROP ... CASCADE` over the FK-linked tables deadlocked once the fifth table existed).
 
 ### SI-03.5 — Optional Authentication Mode in the Global JWT Guard
-- **Status:** pending
-- **Tests:** —
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 10 passing (jwt-auth.guard.spec.ts: 5 existing + 5 optional-auth); auth.e2e-spec.ts 45/45 unchanged
+- **Observations:**
+  - HTTP-level proof of the optional mode (anonymous / owner / invalid token) lives in the videos read E2E of SI-03.11, the first routes that use it.
 
 ### SI-03.6 — Endpoint POST /videos (draft pre-registration + upload session)
 - **Status:** pending
