@@ -13,6 +13,7 @@ import {
   VIDEO_TEST_ENTITIES,
 } from '../test/video-fixtures';
 import { Video } from './entities/video.entity';
+import { putPart } from '../test/storage';
 import { VideoStatus } from './videos.constants';
 import { VideosModule } from './videos.module';
 import { VideosService } from './videos.service';
@@ -87,6 +88,37 @@ describe('VideosService (integration — DB + MinIO)', () => {
       await expect(
         storage.listParts(row.video_key, row.upload_id!),
       ).resolves.toEqual([]);
+      await storage.abortMultipartUpload(row.video_key, row.upload_id!);
+    });
+  });
+
+  describe('upload session (resume)', () => {
+    it('lists uploaded parts and re-signs a URL that accepts the missing part', async () => {
+      const { user } = await createUserWithChannel(dataSource);
+      const draft = await service.createDraft(user.id, {
+        title: 'Resume',
+        fileName: 'resume.mp4',
+        mimeType: 'video/mp4',
+        sizeBytes: 12 * MIB,
+      });
+      const part1 = Buffer.alloc(5 * MIB, 1);
+      await putPart(draft.upload.parts[0].url, part1);
+
+      const session = await service.getUploadSession(draft.slug, user.id);
+      expect(session.uploadedParts).toEqual([
+        { partNumber: 1, sizeBytes: part1.length },
+      ]);
+
+      const resigned = await service.signUploadParts(draft.slug, user.id, [2]);
+      const res = await putPart(resigned.parts[0].url, Buffer.alloc(5 * MIB, 2));
+      expect(res.status).toBe(200);
+
+      const after = await service.getUploadSession(draft.slug, user.id);
+      expect(after.uploadedParts.map((p) => p.partNumber)).toEqual([1, 2]);
+
+      const row = await dataSource
+        .getRepository(Video)
+        .findOneByOrFail({ id: draft.id });
       await storage.abortMultipartUpload(row.video_key, row.upload_id!);
     });
   });

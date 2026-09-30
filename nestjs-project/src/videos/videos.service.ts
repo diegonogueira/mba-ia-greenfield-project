@@ -5,11 +5,15 @@ import { DataSource, QueryFailedError } from 'typeorm';
 import { ChannelsService } from '../channels/channels.service';
 import {
   ChannelNotFoundException,
+  InvalidPartNumberException,
+  VideoNotFoundException,
+  VideoUploadNotActiveException,
 } from '../common/exceptions/domain.exception';
 import videoConfig from '../config/video.config';
 import { StorageService } from '../storage/storage.service';
 import { videoObjectKey } from '../storage/storage.keys';
 import type { CreateVideoDto } from './dto/create-video.dto';
+import type { UploadStatusDto } from './dto/upload-status.dto';
 import type {
   CreatedVideoResponseDto,
   UploadSessionDto,
@@ -90,6 +94,59 @@ export class VideosService {
     const upload = await this.signParts(video, partNumbers, partSize);
 
     return { ...toVideoResponse(video), upload };
+  }
+
+  /** Upload state for resuming: which parts the storage already holds. */
+  async getUploadSession(
+    slug: string,
+    userId: string,
+  ): Promise<UploadStatusDto> {
+    const video = await this.findOwnedDraft(slug, userId);
+    const partSize = this.videoCfg.uploadPartSizeBytes;
+    const uploaded = await this.storage.listParts(
+      video.video_key,
+      video.upload_id!,
+    );
+    return {
+      partSize,
+      partCount: computePartCount(video.size_bytes, partSize),
+      uploadedParts: uploaded.map((p) => ({
+        partNumber: p.partNumber,
+        sizeBytes: p.sizeBytes,
+      })),
+    };
+  }
+
+  /** Fresh presigned URLs for parts to (re-)send — expired URLs or failed parts. */
+  async signUploadParts(
+    slug: string,
+    userId: string,
+    partNumbers: number[],
+  ): Promise<Omit<UploadSessionDto, 'partSize' | 'partCount'>> {
+    const video = await this.findOwnedDraft(slug, userId);
+    const partSize = this.videoCfg.uploadPartSizeBytes;
+    const partCount = computePartCount(video.size_bytes, partSize);
+    if (partNumbers.some((n) => n > partCount)) {
+      throw new InvalidPartNumberException();
+    }
+    const { expiresAt, parts } = await this.signParts(
+      video,
+      partNumbers,
+      partSize,
+    );
+    return { expiresAt, parts };
+  }
+
+  /** Owner-only lookup of a video whose upload is still open (`draft`). */
+  async findOwnedDraft(slug: string, userId: string): Promise<Video> {
+    const video = await this.videosRepository.findBySlug(slug);
+    if (!video || video.channel.user_id !== userId) {
+      throw new VideoNotFoundException();
+    }
+    if (video.status !== VideoStatus.DRAFT || !video.upload_id) {
+      throw new VideoUploadNotActiveException();
+    }
+    return video;
   }
 
   private async signParts(

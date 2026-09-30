@@ -18,3 +18,8 @@ export function usePublicEndpointInsideNetwork(): void {
   process.env.S3_PUBLIC_ENDPOINT =
     process.env.S3_ENDPOINT ?? 'http://minio:9000';
 }
+
+/** PUTs bytes to a presigned URL (the way a browser/uploader would). */
+export async function putPart(url: string, body: Buffer): Promise<Response> {
+  return fetch(url, { method: 'PUT', body: new Uint8Array(body) });
+}

@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 6/12 completed
+**SIs:** 7/12 completed
 
 ### SI-03.1 — Infra: Dependencies, Compose Services and FFmpeg Image
 - **Status:** completed
@@ -51,9 +51,11 @@
   - Drafts created by the tests (e.g. the 10 GiB one) leave empty multipart uploads in MinIO; MinIO expires stale incomplete uploads on its own (24 h default).
 
 ### SI-03.7 — Endpoints GET /videos/{slug}/upload and POST /videos/{slug}/upload/parts (resume)
-- **Status:** pending
-- **Tests:** —
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 16 passing: videos.service.spec.ts +6 (session branches), videos.service.integration-spec.ts +1 (list/re-sign against MinIO), test/videos-upload-session.e2e-spec.ts 5
+- **Observations:**
+  - Spec scenario 1.5 expects the real `POST .../upload/complete`, which only exists from SI-03.8; in this SI the row is moved out of `draft` directly in the DB (the same state completion leaves). The scenario is switched to the real endpoint once SI-03.8 lands.
+  - `partSize`/`partCount` of a session are recomputed from `VIDEO_UPLOAD_PART_SIZE_BYTES` (as planned) — changing that variable while uploads are open would change the expected part count of those uploads.
 
 ### SI-03.8 — Endpoint POST /videos/{slug}/upload/complete (queue producer)
 - **Status:** pending

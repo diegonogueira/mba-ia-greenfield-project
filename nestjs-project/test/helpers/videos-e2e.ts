@@ -12,6 +12,8 @@ import { DomainExceptionFilter } from '../../src/common/filters/domain-exception
 import { ValidationExceptionFilter } from '../../src/common/filters/validation-exception.filter';
 import { User } from '../../src/users/entities/user.entity';
 
+export { putPart } from '../../src/test/storage';
+
 export const MIB = 1024 * 1024;
 
 /** Queue prefix used by E2E tests so the running video-worker container never consumes their jobs. */
@@ -93,8 +95,4 @@ export async function createLoggedUser(
     .expect(200);
 
   return { user, channel, accessToken: res.body.access_token as string };
-}
-
-export async function putPart(url: string, body: Buffer): Promise<Response> {
-  return fetch(url, { method: 'PUT', body: new Uint8Array(body) });
 }

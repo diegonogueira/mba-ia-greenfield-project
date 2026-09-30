@@ -1,4 +1,12 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -10,7 +18,12 @@ import type { JwtPayload } from '../auth/auth.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiErrorEnvelope } from '../common/openapi/api-error-envelope.dto';
 import { CreateVideoDto } from './dto/create-video.dto';
-import { CreatedVideoResponseDto } from './dto/video-response.dto';
+import { SignPartsDto } from './dto/sign-parts.dto';
+import { UploadStatusDto } from './dto/upload-status.dto';
+import {
+  CreatedVideoResponseDto,
+  SignedPartsResponseDto,
+} from './dto/video-response.dto';
 import { VideosService } from './videos.service';
 
 @ApiTags('videos')
@@ -51,5 +64,73 @@ export class VideosController {
     @Body() dto: CreateVideoDto,
   ): Promise<CreatedVideoResponseDto> {
     return this.videosService.createDraft(user.sub, dto);
+  }
+
+  @Get(':slug/upload')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get the upload session state',
+    description:
+      'Owner only. Lists the parts the storage already holds, so an interrupted upload can resume by sending only the missing parts.',
+  })
+  @ApiResponse({ status: 200, type: UploadStatusDto })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid access token',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Video not found or caller is not the owner',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'The video upload is no longer active (status is not draft)',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  async getUploadSession(
+    @CurrentUser() user: JwtPayload,
+    @Param('slug') slug: string,
+  ): Promise<UploadStatusDto> {
+    return this.videosService.getUploadSession(slug, user.sub);
+  }
+
+  @Post(':slug/upload/parts')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Re-sign upload part URLs',
+    description:
+      'Owner only. Returns fresh presigned PUT URLs for the requested parts (expired URLs or parts to be re-sent). No resource is created, hence 200.',
+  })
+  @ApiResponse({ status: 200, type: SignedPartsResponseDto })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Validation failed, or a part number is greater than the part count (INVALID_PART_NUMBER)',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid access token',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Video not found or caller is not the owner',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'The video upload is no longer active (status is not draft)',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  async signUploadParts(
+    @CurrentUser() user: JwtPayload,
+    @Param('slug') slug: string,
+    @Body() dto: SignPartsDto,
+  ): Promise<SignedPartsResponseDto> {
+    return this.videosService.signUploadParts(slug, user.sub, dto.partNumbers);
   }
 }

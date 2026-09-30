@@ -96,3 +96,11 @@ export class CreatedVideoResponseDto extends VideoResponseDto {
   @ApiProperty({ type: UploadSessionDto })
   upload: UploadSessionDto;
 }
+
+export class SignedPartsResponseDto {
+  @ApiProperty({ type: String, format: 'date-time' })
+  expiresAt: Date;
+
+  @ApiProperty({ type: [SignedPartDto] })
+  parts: SignedPartDto[];
+}

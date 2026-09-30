@@ -1,6 +1,11 @@
 import { QueryFailedError } from 'typeorm';
 import { Channel } from '../channels/entities/channel.entity';
-import { ChannelNotFoundException } from '../common/exceptions/domain.exception';
+import {
+  ChannelNotFoundException,
+  InvalidPartNumberException,
+  VideoNotFoundException,
+  VideoUploadNotActiveException,
+} from '../common/exceptions/domain.exception';
 import type { CreateVideoDto } from './dto/create-video.dto';
 import { Video } from './entities/video.entity';
 import { VideoStatus } from './videos.constants';
@@ -42,6 +47,7 @@ const dto: CreateVideoDto = {
 function setup() {
   const manager = { query: jest.fn().mockResolvedValue(undefined) };
   const videosRepository = {
+    findBySlug: jest.fn(),
     insert: jest.fn(
       async (data: Partial<Video>) => Object.assign(new Video(), data) as Video,
     ),
@@ -52,6 +58,7 @@ function setup() {
   const storage = {
     createMultipartUpload: jest.fn().mockResolvedValue('upload-1'),
     abortMultipartUpload: jest.fn().mockResolvedValue(undefined),
+    listParts: jest.fn().mockResolvedValue([]),
     presignUploadParts: jest.fn(
       async (_k: string, _u: string, parts: number[]) =>
         parts.map((partNumber) => ({ partNumber, url: `u${partNumber}` })),
@@ -152,5 +159,85 @@ describe('VideosService.createDraft', () => {
       expect.stringMatching(/^videos\/.+\/original$/),
       'upload-1',
     );
+  });
+});
+
+function makeVideo(overrides: Partial<Video> = {}): Video {
+  return Object.assign(new Video(), {
+    id: 'video-1',
+    slug: 'slug0000001',
+    status: VideoStatus.DRAFT,
+    size_bytes: 3 * PART_SIZE,
+    video_key: 'videos/video-1/original',
+    upload_id: 'upload-1',
+    channel: makeChannel(),
+    ...overrides,
+  });
+}
+
+describe('VideosService upload session', () => {
+  it('lists the parts already held by the storage', async () => {
+    const { service, videosRepository, storage } = setup();
+    videosRepository.findBySlug.mockResolvedValue(makeVideo());
+    storage.listParts.mockResolvedValue([
+      { partNumber: 1, etag: '"e1"', sizeBytes: PART_SIZE },
+    ]);
+
+    const res = await service.getUploadSession('slug0000001', 'user-1');
+
+    expect(res).toEqual({
+      partSize: PART_SIZE,
+      partCount: 3,
+      uploadedParts: [{ partNumber: 1, sizeBytes: PART_SIZE }],
+    });
+  });
+
+  it('hides the session from a non-owner (VIDEO_NOT_FOUND)', async () => {
+    const { service, videosRepository } = setup();
+    videosRepository.findBySlug.mockResolvedValue(makeVideo());
+
+    await expect(
+      service.getUploadSession('slug0000001', 'someone-else'),
+    ).rejects.toBeInstanceOf(VideoNotFoundException);
+  });
+
+  it('reports an unknown slug as VIDEO_NOT_FOUND', async () => {
+    const { service, videosRepository } = setup();
+    videosRepository.findBySlug.mockResolvedValue(null);
+
+    await expect(
+      service.signUploadParts('unknown', 'user-1', [1]),
+    ).rejects.toBeInstanceOf(VideoNotFoundException);
+  });
+
+  it('rejects session calls once the video left draft (VIDEO_UPLOAD_NOT_ACTIVE)', async () => {
+    const { service, videosRepository } = setup();
+    videosRepository.findBySlug.mockResolvedValue(
+      makeVideo({ status: VideoStatus.PROCESSING, upload_id: null }),
+    );
+
+    await expect(
+      service.signUploadParts('slug0000001', 'user-1', [1]),
+    ).rejects.toBeInstanceOf(VideoUploadNotActiveException);
+  });
+
+  it('rejects part numbers above the part count (INVALID_PART_NUMBER)', async () => {
+    const { service, videosRepository, storage } = setup();
+    videosRepository.findBySlug.mockResolvedValue(makeVideo());
+
+    await expect(
+      service.signUploadParts('slug0000001', 'user-1', [2, 4]),
+    ).rejects.toBeInstanceOf(InvalidPartNumberException);
+    expect(storage.presignUploadParts).not.toHaveBeenCalled();
+  });
+
+  it('signs only the requested parts', async () => {
+    const { service, videosRepository } = setup();
+    videosRepository.findBySlug.mockResolvedValue(makeVideo());
+
+    const res = await service.signUploadParts('slug0000001', 'user-1', [2, 3]);
+
+    expect(res.parts.map((p) => p.partNumber)).toEqual([2, 3]);
+    expect(res.expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 });
