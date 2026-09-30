@@ -168,7 +168,7 @@ Deliver video upload and processing end to end in `nestjs-project/`: object stor
 ### SI-03.6 — Endpoint POST /videos (draft pre-registration + upload session)
 
 **Route:** POST /videos
-**Test Specs:** _pending /plan-test-specs_
+**Test Specs:** see `nestjs-project/specs/videos-create.plan.md`
 **Authorization:** Authenticated — the video is created in the caller's own channel
 
 **Description:** Starting an upload pre-registers the video as `draft` with a unique slug and opens the S3 multipart upload, returning presigned part URLs — the file itself never reaches the API.
@@ -207,7 +207,7 @@ Deliver video upload and processing end to end in `nestjs-project/`: object stor
 ### SI-03.7 — Endpoints GET /videos/{slug}/upload and POST /videos/{slug}/upload/parts (resume)
 
 **Route:** GET /videos/{slug}/upload, POST /videos/{slug}/upload/parts
-**Test Specs:** _pending /plan-test-specs_
+**Test Specs:** see `nestjs-project/specs/videos-upload-session.plan.md`
 **Authorization:** Owner only (non-owner → 404)
 
 **Description:** Let the owner inspect which parts the storage already holds and obtain fresh URLs for missing or expired parts, so an interrupted 10GB upload resumes without restarting (per `phase-03-videos/TD-02`).
@@ -242,7 +242,7 @@ Deliver video upload and processing end to end in `nestjs-project/`: object stor
 ### SI-03.8 — Endpoint POST /videos/{slug}/upload/complete (queue producer)
 
 **Route:** POST /videos/{slug}/upload/complete
-**Test Specs:** _pending /plan-test-specs_
+**Test Specs:** see `nestjs-project/specs/videos-upload-complete.plan.md`
 **Authorization:** Owner only (non-owner → 404)
 
 **Description:** Close the upload from the storage's own part listing, move the video `draft → processing` and publish the `process-video` job, so processing starts automatically after the upload (per `phase-03-videos/TD-01`, `phase-03-videos/TD-03`).
@@ -338,7 +338,7 @@ Deliver video upload and processing end to end in `nestjs-project/`: object stor
 ### SI-03.11 — Endpoints GET /videos/{slug}, /stream, /download, /thumbnail
 
 **Route:** GET /videos/{slug}, GET /videos/{slug}/stream, GET /videos/{slug}/download, GET /videos/{slug}/thumbnail
-**Test Specs:** _pending /plan-test-specs_
+**Test Specs:** see `nestjs-project/specs/videos-read.plan.md`
 **Authorization:** Public with optional authentication — `ready` videos for anyone holding the slug; other statuses only for the owner (per `### Authorization Matrix`)
 
 **Description:** Expose the video by its unique URL and deliver playback (HTTP range, no full download), download and thumbnail through redirects to short-lived presigned URLs (per `phase-03-videos/TD-07`, `phase-03-videos/TD-10`).
