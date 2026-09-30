@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 2/12 completed
+**SIs:** 3/12 completed
 
 ### SI-03.1 — Infra: Dependencies, Compose Services and FFmpeg Image
 - **Status:** completed
@@ -21,9 +21,11 @@
   - Existing `requiredEnv` fixture of the env validation spec now includes the two required S3 credentials.
 
 ### SI-03.3 — Storage Module (S3 client, multipart and presigned URLs)
-- **Status:** pending
-- **Tests:** —
-- **Observations:** none
+- **Status:** completed
+- **Tests:** 8 passing (storage.service.integration-spec.ts: 7, storage.module.spec.ts: 1)
+- **Observations:**
+  - Presigned URLs used by the tests are signed for the in-network endpoint (`src/test/storage.ts`), since the test process cannot reach the host's `localhost:9000`; the audience test signs against a fake public host to prove URLs carry `S3_PUBLIC_ENDPOINT`.
+  - `npm run lint` was already failing before this phase (151 errors, mostly `no-unsafe-*` in phase 01/02 test files). Handled in final verification, since the Definition of Done requires lint to pass.
 
 ### SI-03.4 — Video Entity, Migration and Repository
 - **Status:** pending

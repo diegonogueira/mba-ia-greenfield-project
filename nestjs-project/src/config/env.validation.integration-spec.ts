@@ -56,7 +56,10 @@ describe('envValidationSchema — storage, queue and video keys', () => {
   );
 
   it('should apply the documented defaults', () => {
-    const { value, error } = validate({});
+    const { value, error } = validate({}) as {
+      value: Record<string, unknown>;
+      error?: Error;
+    };
     expect(error).toBeUndefined();
     expect(value).toMatchObject({
       S3_ENDPOINT: 'http://minio:9000',
