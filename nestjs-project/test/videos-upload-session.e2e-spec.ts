@@ -1,10 +1,11 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { INestApplication } from '@nestjs/common';
+import type { Queue } from 'bullmq';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { cleanAllTables } from '../src/test/create-test-data-source';
-import { Video } from '../src/videos/entities/video.entity';
-import { VideoStatus } from '../src/videos/videos.constants';
+import { VIDEO_PROCESSING_QUEUE } from '../src/videos/videos.constants';
 import {
   applyVideoTestEnv,
   createLoggedUser,
@@ -31,6 +32,9 @@ describe('Upload session — GET /videos/:slug/upload, POST /videos/:slug/upload
   });
 
   afterAll(async () => {
+    await app
+      .get<Queue>(getQueueToken(VIDEO_PROCESSING_QUEUE))
+      .obliterate({ force: true });
     await app.close();
     delete process.env.VIDEO_UPLOAD_PART_SIZE_BYTES;
   });
@@ -116,13 +120,14 @@ describe('Upload session — GET /videos/:slug/upload, POST /videos/:slug/upload
   });
 
   // 1.5 — rejects-session-routes-after-completion
-  // The complete route arrives in SI-03.8 (covered end-to-end in
-  // videos-upload-complete.e2e-spec.ts); here the row is moved out of draft
-  // the same way completion does (status processing, upload id cleared).
-  it('rejects session routes once the video is no longer a draft', async () => {
-    await dataSource
-      .getRepository(Video)
-      .update({ slug }, { status: VideoStatus.PROCESSING, upload_id: null });
+  it('rejects session routes once the upload is completed', async () => {
+    await putPart(partUrls[0], Buffer.alloc(PART, 1));
+    await putPart(partUrls[1], Buffer.alloc(PART, 2));
+    await putPart(partUrls[2], Buffer.alloc(1024, 3));
+    await request(app.getHttpServer())
+      .post(`/videos/${slug}/upload/complete`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .expect(202);
 
     const a = await getSession(owner.accessToken).expect(409);
     const b = await signParts(owner.accessToken, [1]).expect(409);

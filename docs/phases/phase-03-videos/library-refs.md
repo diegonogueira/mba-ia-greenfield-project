@@ -1,13 +1,17 @@
 ---
 libs:
   "@nestjs/bullmq":
-    version: "^12.0.0"
+    version: "^11.0.5"
     context7_id: "/nestjs/docs.nestjs.com"
     fetched_at: "2026-09-30T15:36:02-03:00"
   "bullmq":
     version: "^6.3.10"
     context7_id: "/taskforcesh/bullmq"
     fetched_at: "2026-09-30T15:36:02-03:00"
+  "ioredis":
+    version: "^5.11.1"
+    context7_id: "/redis/ioredis"
+    fetched_at: "2026-09-30T16:30:00-03:00"
   "@aws-sdk/client-s3":
     version: "^3.1143.0"
     context7_id: "/aws/aws-sdk-js-v3"
@@ -22,7 +26,7 @@ sources_mtime:
 
 # Library references — phase-03-videos
 
-Distilled from Context7 (`resolve-library-id` + `query-docs`), limited to the surfaces the decided TDs use. Versions are the latest published on npm at fetch time; `@nestjs/bullmq@12` declares peer support for `@nestjs/common`/`@nestjs/core` `^10 || ^11 || ^12` and `bullmq` `^3 … ^6` (compatible with the installed NestJS 11).
+Distilled from Context7 (`resolve-library-id` + `query-docs`), limited to the surfaces the decided TDs use. Versions are the latest published on npm at fetch time, except `@nestjs/bullmq`: `12.x` (and `@nestjs/bull-shared@12`) is published as ESM-only (`"type": "module"`), which the CommonJS NestJS 11 build and Jest cannot `require`; `11.0.5` is the latest CommonJS release and declares peer support for NestJS `^10 || ^11` and `bullmq` `^3 … ^6` (revision of `phase-03-videos/TD-01`, 2026-09-30).
 
 ## @nestjs/bullmq
 
@@ -44,6 +48,14 @@ Used by `phase-03-videos/TD-01`, `phase-03-videos/TD-03`.
 - Graceful shutdown: `worker.close()` stops fetching and waits for the active job (Nest calls it on application shutdown when `enableShutdownHooks()` is on).
 - Redis requirements: version ≥ 5 (≥ 6.2 recommended); `maxmemory-policy noeviction` is the **only** safe policy (BullMQ warns otherwise); AOF persistence recommended.
 - `queue.getJobs(['waiting', 'delayed', ...])` / `queue.getJob(id)` for assertions in tests; `queue.obliterate({ force: true })` wipes a queue (test cleanup).
+
+## ioredis
+
+Used by `phase-03-videos/TD-01` as BullMQ's Redis client.
+
+- `bullmq@6` declares `ioredis` (and `redis`) as **optional** peers: without one installed, creating a `Queue`/`Worker` from plain connection options throws "BullMQ could not load the optional 'ioredis' package". Installing `ioredis` keeps `connection: { host, port }` working.
+- BullMQ creates the clients itself from `connection` (`new Redis(port, host, options)` style options in `/redis/ioredis`); the app never instantiates `Redis` directly.
+- `^5` (not 6): `typeorm@0.3.28` declares an optional peer `ioredis@^5`, so npm refuses `ioredis@6` in this tree.
 
 ## @aws-sdk/client-s3
 

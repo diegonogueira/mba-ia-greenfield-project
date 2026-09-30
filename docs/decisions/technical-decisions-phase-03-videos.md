@@ -45,7 +45,9 @@ _Subprojects in scope:_
 **Recommendation:** BullMQ + Redis — it is the queue integration documented by NestJS (`@nestjs/bullmq`) and gives attempts, exponential backoff, `UnrecoverableError` and `jobId` deduplication out of the box, which TD-03 relies on; Redis is a small dedicated container, so the queue becomes a real Compose service as the architecture diagram expects, instead of sharing load with PostgreSQL (pg-boss) or hand-building retry topologies (RabbitMQ).
 
 **Decision:** A (BullMQ + Redis)
-**Libraries:** `@nestjs/bullmq@^12.0.0`, `bullmq@^6.3.10`
+**Libraries:** `@nestjs/bullmq@^11.0.5`, `bullmq@^6.3.10`, `ioredis@^5.11.1`
+**Revisions:**
+- 2026-09-30 — Libraries changed from `@nestjs/bullmq@^12.0.0` to `@nestjs/bullmq@^11.0.5` and `ioredis@^5.11.1` added. Rationale: `@nestjs/bullmq@12` (and its `@nestjs/bull-shared`) ship as ESM-only packages, which the CommonJS NestJS 11 build and Jest cannot load; `11.0.5` is the latest CommonJS release and still supports `bullmq@^6` and NestJS 11. `bullmq@6` made `ioredis` an optional peer, so it must be installed explicitly; `^5` because `typeorm@0.3.28` declares an optional `ioredis@^5` peer. Found while implementing SI-03.8.
 
 ---
 

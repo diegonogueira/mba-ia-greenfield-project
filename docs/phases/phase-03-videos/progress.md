@@ -1,7 +1,7 @@
 # phase-03-videos — Progress
 
 **Status:** in_progress
-**SIs:** 7/12 completed
+**SIs:** 8/12 completed
 
 ### SI-03.1 — Infra: Dependencies, Compose Services and FFmpeg Image
 - **Status:** completed
@@ -58,9 +58,13 @@
   - `partSize`/`partCount` of a session are recomputed from `VIDEO_UPLOAD_PART_SIZE_BYTES` (as planned) — changing that variable while uploads are open would change the expected part count of those uploads.
 
 ### SI-03.8 — Endpoint POST /videos/{slug}/upload/complete (queue producer)
-- **Status:** pending
-- **Tests:** —
-- **Observations:** none
+- **Status:** completed
+- **Tests:** videos.service.spec.ts +9 (complete branches), videos.service.integration-spec.ts +2 (real completion + job in Redis; enqueue failure keeps draft, then a retry succeeds), videos.module.spec.ts 1, test/videos-upload-complete.e2e-spec.ts 4; full suites 204/204 unit+integration and 67/67 E2E
+- **Observations:**
+  - Library revision (recorded as a Revisions entry in `phase-03-videos/TD-01`, mirrored in context.md and library-refs.md): `@nestjs/bullmq@12` is ESM-only and cannot be loaded by the CommonJS NestJS 11 build/Jest, so it was pinned to `^11.0.5` (latest CommonJS release, supports `bullmq@^6` and NestJS 11). `bullmq@6` needs `ioredis` installed explicitly (optional peer), so `ioredis@^5.11.1` was added (`^5` because `typeorm@0.3.28` pins an optional `ioredis@^5` peer). The SI-03.1 action text still shows the original version, because executed SIs are not edited.
+  - `bullRootModule()` (`src/queue/bull-root.module.ts`) builds the root BullMQ connection from `queueConfig` so the API and the worker (SI-03.10) share one definition.
+  - Session spec scenario 1.5 now uses the real `POST .../upload/complete` (see the SI-03.7 note); the spec's `afterAll` also obliterates its test queue.
+  - The completion is retry-safe: if the storage already completed the upload (`NoSuchUpload`) but the status did not change, a retry checks the object size and proceeds. Covered by the integration test.
 
 ### SI-03.9 — Media Probe Service (ffprobe metadata + ffmpeg thumbnail)
 - **Status:** pending

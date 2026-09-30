@@ -49,7 +49,8 @@ sources_mtime:
 
 | Ref | Source | Scope | Topic | Status | Decision | Libraries |
 |-----|--------|-------|-------|--------|----------|-----------|
-| phase-03-videos/TD-01 | phase | Backend | Message Queue Technology | decided | A (BullMQ + Redis) | `@nestjs/bullmq@^12.0.0`, `bullmq@^6.3.10` |
+| phase-03-videos/TD-01 | phase | Backend | Message Queue Technology | decided | A (BullMQ + Redis) | `@nestjs/bullmq@^11.0.5`, `bullmq@^6.3.10`, `ioredis@^5.11.1` |
+|  └─ Last revision: 2026-09-30 — `@nestjs/bullmq` 12 → 11.0.5 (12 is ESM-only), `ioredis` added | | | | | | |
 | phase-03-videos/TD-02 | phase | Cross-layer | Large File Upload Strategy (up to 10GB) | decided | B (S3 multipart with presigned part URLs) | — |
 | phase-03-videos/TD-03 | phase | Backend | Video Status Lifecycle and Processing Failure Policy | decided | A (Single guarded status enum + queue retries + terminal `failed`) | — |
 | phase-03-videos/TD-04 | phase | Backend | Video Worker Runtime | decided | A (Separate container, same codebase, dedicated entrypoint) | — |
@@ -86,7 +87,10 @@ _Source files:_
 
 **Recommendation:** BullMQ + Redis — it is the queue integration documented by NestJS (`@nestjs/bullmq`) and gives attempts, exponential backoff, `UnrecoverableError` and `jobId` deduplication out of the box, which TD-03 relies on; Redis is a small dedicated container, so the queue becomes a real Compose service as the architecture diagram expects, instead of sharing load with PostgreSQL (pg-boss) or hand-building retry topologies (RabbitMQ).
 
-**Libraries:** `@nestjs/bullmq@^12.0.0`, `bullmq@^6.3.10`
+**Libraries:** `@nestjs/bullmq@^11.0.5`, `bullmq@^6.3.10`, `ioredis@^5.11.1`
+
+**Revisions:**
+- 2026-09-30 — `@nestjs/bullmq` pinned to `^11.0.5` (12.x is ESM-only, not loadable by the CommonJS build/Jest) and `ioredis@^5.11.1` added (optional peer of `bullmq@6`, `^5` for `typeorm@0.3.28` compatibility).
 
 ### phase-03-videos/TD-02
 

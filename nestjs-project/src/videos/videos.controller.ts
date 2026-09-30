@@ -23,6 +23,7 @@ import { UploadStatusDto } from './dto/upload-status.dto';
 import {
   CreatedVideoResponseDto,
   SignedPartsResponseDto,
+  VideoResponseDto,
 } from './dto/video-response.dto';
 import { VideosService } from './videos.service';
 
@@ -132,5 +133,42 @@ export class VideosController {
     @Body() dto: SignPartsDto,
   ): Promise<SignedPartsResponseDto> {
     return this.videosService.signUploadParts(slug, user.sub, dto.partNumbers);
+  }
+
+  @Post(':slug/upload/complete')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Complete the upload',
+    description:
+      'Owner only. Checks every part in the storage, completes the multipart upload, moves the video from draft to processing and enqueues the processing job (duration/metadata extraction and thumbnail). Processing continues asynchronously, hence 202.',
+  })
+  @ApiResponse({ status: 202, type: VideoResponseDto })
+  @ApiResponse({
+    status: 401,
+    description: 'Missing or invalid access token',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Video not found or caller is not the owner',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'The video upload is no longer active (already completed)',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  @ApiResponse({
+    status: 422,
+    description:
+      'Missing parts, size different from the declared one, or part set rejected by the storage (UPLOAD_INCOMPLETE)',
+    schema: { $ref: getSchemaPath(ApiErrorEnvelope) },
+  })
+  async completeUpload(
+    @CurrentUser() user: JwtPayload,
+    @Param('slug') slug: string,
+  ): Promise<VideoResponseDto> {
+    return this.videosService.completeUpload(slug, user.sub);
   }
 }
