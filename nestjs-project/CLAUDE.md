@@ -193,7 +193,7 @@ Optional auth: routes marked `@Public()` + `@OptionalAuth()` accept anonymous ca
 - **TypeScript:** `nodenext` module resolution, `ES2023` target, `strictNullChecks` on, `noImplicitAny` off
 - **Decorators:** `emitDecoratorMetadata` + `experimentalDecorators` enabled — required for NestJS DI
 - **Prettier:** single quotes, trailing commas everywhere
-- **ESLint:** `no-explicit-any` allowed; `no-floating-promises` and `no-unsafe-argument` are warnings
+- **ESLint:** `no-explicit-any` allowed; `no-floating-promises` and `no-unsafe-argument` are warnings; in test code (`*.spec.ts`, `*.integration-spec.ts`, `*.e2e-spec.ts`, `test/**`, `src/test/**`) the other `no-unsafe-*` rules, `unbound-method` and `require-await` are warnings too
 
 ## REST Conventions
 

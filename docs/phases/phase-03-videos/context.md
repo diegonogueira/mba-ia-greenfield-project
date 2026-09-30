@@ -3,13 +3,13 @@ kind: phase
 name: phase-03-videos
 sources_mtime:
   docs/project-plan.md: "2026-09-30T12:56:33-03:00"
-  docs/decisions/technical-decisions-phase-03-videos.md: "2026-09-30T15:35:37-03:00"
-  docs/phases/phase-03-videos/library-refs.md: "2026-09-30T15:36:25-03:00"
+  docs/decisions/technical-decisions-phase-03-videos.md: "2026-09-30T16:28:19-03:00"
+  docs/phases/phase-03-videos/library-refs.md: "2026-09-30T16:28:36-03:00"
   docs/decisions/technical-decisions-openapi-docs-nestjs.md: "2026-09-30T12:56:49-03:00"
   docs/phases/phase-01-configuracao-base/context.md: "2026-09-30T12:56:49-03:00"
   docs/phases/phase-02-auth/context.md: "2026-09-30T12:56:49-03:00"
   docs/phases/phase-02-auth-frontend/context.md: "2026-09-30T12:56:49-03:00"
-  .claude/skills/testing-guide-nestjs-project/SKILL.md: "2026-09-30T12:56:33-03:00"
+  .claude/skills/testing-guide-nestjs-project/SKILL.md: "2026-09-30T16:43:23-03:00"
 ---
 
 # phase-03-videos — Context
@@ -348,7 +348,7 @@ Refer to the `testing-guide-nestjs-project` Skill for layer requirements per art
 | Service with branching + DB | Unit: branch logic (mock repo) + Integration: DB contract |
 | Service with DB only (no branching) | Integration: DB contract |
 | Service with configured lib (JWT, cache) | Unit: real lib with test config |
-| Service with side-effect dep (email, storage) | Integration: real capture service (Mailpit) or local adapter |
+| Service with side-effect dep (email, storage) | Integration: real service from Compose (Mailpit, MinIO) |
 | Module with configured imports | Unit: compilation test |
 | Controller | E2E only — do NOT write unit tests |
 | DTO | E2E: one validation wiring test per endpoint |
