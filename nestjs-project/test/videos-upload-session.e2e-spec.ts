@@ -88,9 +88,9 @@ describe('Upload session — GET /videos/:slug/upload, POST /videos/:slug/upload
   it('re-signs the requested parts', async () => {
     const res = await signParts(owner.accessToken, [2, 3]).expect(200);
 
-    expect(res.body.parts.map((p: { partNumber: number }) => p.partNumber)).toEqual([
-      2, 3,
-    ]);
+    expect(
+      res.body.parts.map((p: { partNumber: number }) => p.partNumber),
+    ).toEqual([2, 3]);
     const expiresInMs = new Date(res.body.expiresAt).getTime() - Date.now();
     expect(expiresInMs).toBeGreaterThan(3500 * 1000);
     expect(expiresInMs).toBeLessThanOrEqual(3600 * 1000);

@@ -63,7 +63,8 @@ export function mapProbeOutput(output: FfprobeOutput): ProbeResult {
     formatName: output.format?.format_name ?? null,
     bitRate: toNumber(output.format?.bit_rate),
     frameRate:
-      parseFrameRate(video.avg_frame_rate) ?? parseFrameRate(video.r_frame_rate),
+      parseFrameRate(video.avg_frame_rate) ??
+      parseFrameRate(video.r_frame_rate),
   };
 }
 

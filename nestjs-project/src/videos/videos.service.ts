@@ -256,10 +256,7 @@ export class VideosService {
   }
 
   /** Metadata of a video visible to the viewer (anonymous when `viewer` is undefined). */
-  async getVideo(
-    slug: string,
-    viewer?: JwtPayload,
-  ): Promise<VideoResponseDto> {
+  async getVideo(slug: string, viewer?: JwtPayload): Promise<VideoResponseDto> {
     return toVideoResponse(await this.findVisible(slug, viewer));
   }
 
@@ -273,7 +270,8 @@ export class VideosService {
     return this.storage.presignGetObject(video.video_key, {
       ttlSeconds: this.videoCfg.playbackUrlTtlSeconds,
       audience: 'public',
-      downloadFileName: mode === 'download' ? video.original_filename : undefined,
+      downloadFileName:
+        mode === 'download' ? video.original_filename : undefined,
     });
   }
 

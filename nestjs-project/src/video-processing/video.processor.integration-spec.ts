@@ -5,10 +5,7 @@ import { thumbnailObjectKey } from '../storage/storage.keys';
 import { StorageService } from '../storage/storage.service';
 import { cleanAllTables } from '../test/create-test-data-source';
 import { generateSampleVideo } from '../test/sample-video';
-import {
-  buildVideo,
-  createUserWithChannel,
-} from '../test/video-fixtures';
+import { buildVideo, createUserWithChannel } from '../test/video-fixtures';
 import { createWorkerTestModule } from '../test/worker-test-module';
 import { Video } from '../videos/entities/video.entity';
 import { VideoStatus } from '../videos/videos.constants';

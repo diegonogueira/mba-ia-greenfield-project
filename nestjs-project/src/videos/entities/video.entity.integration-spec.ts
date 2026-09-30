@@ -34,7 +34,8 @@ describe('Video entity (integration)', () => {
 
   it('defaults status to draft', async () => {
     const { channel } = await createUserWithChannel(dataSource);
-    const { status: _omit, ...withoutStatus } = buildVideo(channel.id);
+    const withoutStatus = buildVideo(channel.id);
+    delete withoutStatus.status;
     await videoRepository.insert(withoutStatus);
 
     const saved = await videoRepository.findOneByOrFail({
@@ -58,9 +59,10 @@ describe('Video entity (integration)', () => {
     await videoRepository.save(video);
 
     await expect(
-      dataSource.query(`UPDATE "videos" SET "status" = 'published' WHERE id = $1`, [
-        video.id,
-      ]),
+      dataSource.query(
+        `UPDATE "videos" SET "status" = 'published' WHERE id = $1`,
+        [video.id],
+      ),
     ).rejects.toThrow(QueryFailedError);
   });
 

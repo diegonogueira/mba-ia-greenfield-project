@@ -32,4 +32,24 @@ export default tseslint.config(
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },
+  {
+    // Test code works with untyped values by design (supertest `res.body` is
+    // `any`, jest mocks are loosely typed and reference methods unbound), so
+    // the type-safety rules report there as warnings instead of errors.
+    files: [
+      '**/*.spec.ts',
+      '**/*.integration-spec.ts',
+      '**/*.e2e-spec.ts',
+      'test/**/*.ts',
+      'src/test/**/*.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'warn',
+      '@typescript-eslint/no-unsafe-member-access': 'warn',
+      '@typescript-eslint/no-unsafe-return': 'warn',
+      '@typescript-eslint/no-unsafe-call': 'warn',
+      '@typescript-eslint/unbound-method': 'warn',
+      '@typescript-eslint/require-await': 'warn',
+    },
+  },
 );

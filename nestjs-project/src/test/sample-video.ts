@@ -40,7 +40,14 @@ export async function generateSampleVideo(
     '-c:v',
     'libx264',
     ...(options.bitrate
-      ? ['-b:v', options.bitrate, '-maxrate', options.bitrate, '-bufsize', options.bitrate]
+      ? [
+          '-b:v',
+          options.bitrate,
+          '-maxrate',
+          options.bitrate,
+          '-bufsize',
+          options.bitrate,
+        ]
       : []),
     '-pix_fmt',
     'yuv420p',

@@ -14,7 +14,11 @@ export class VideoMetadataDto {
   @ApiProperty({ nullable: true, type: String, example: 'aac' })
   audioCodec: string | null;
 
-  @ApiProperty({ nullable: true, type: String, example: 'mov,mp4,m4a,3gp,3g2,mj2' })
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'mov,mp4,m4a,3gp,3g2,mj2',
+  })
   formatName: string | null;
 
   @ApiProperty({ nullable: true, type: Number, example: 4500000 })
@@ -36,7 +40,10 @@ export class VideoResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
-  @ApiProperty({ example: 'dQw4w9WgXcQ', description: 'Unique 11-char public id' })
+  @ApiProperty({
+    example: 'dQw4w9WgXcQ',
+    description: 'Unique 11-char public id',
+  })
   slug: string;
 
   @ApiProperty()

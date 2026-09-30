@@ -107,7 +107,9 @@ describe('VideoProcessor', () => {
 
   it('marks invalid media as failed and stops retrying', async () => {
     const { processor, videosService, media } = setup();
-    media.probe.mockRejectedValue(new InvalidMediaError('No video stream found'));
+    media.probe.mockRejectedValue(
+      new InvalidMediaError('No video stream found'),
+    );
 
     await expect(processor.process(makeJob())).rejects.toBeInstanceOf(
       UnrecoverableError,

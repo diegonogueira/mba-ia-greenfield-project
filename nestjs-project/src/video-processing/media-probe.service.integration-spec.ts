@@ -13,7 +13,11 @@ function jpegWidth(jpeg: Buffer): number {
   while (offset < jpeg.length) {
     const marker = jpeg[offset + 1];
     const length = jpeg.readUInt16BE(offset + 2);
-    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+    if (
+      marker >= 0xc0 &&
+      marker <= 0xcf &&
+      ![0xc4, 0xc8, 0xcc].includes(marker)
+    ) {
       return jpeg.readUInt16BE(offset + 7);
     }
     offset += 2 + length;
@@ -33,7 +37,11 @@ describe('MediaProbeService (integration — ffmpeg + MinIO)', () => {
     textKey = `test/${randomUUID()}.txt`;
     await storage.putObject(
       videoKey,
-      await generateSampleVideo({ durationSeconds: 2, width: 320, height: 240 }),
+      await generateSampleVideo({
+        durationSeconds: 2,
+        width: 320,
+        height: 240,
+      }),
       'video/mp4',
     );
     await storage.putObject(
@@ -78,7 +86,11 @@ describe('MediaProbeService (integration — ffmpeg + MinIO)', () => {
     const wideKey = `test/${randomUUID()}.mp4`;
     await storage.putObject(
       wideKey,
-      await generateSampleVideo({ durationSeconds: 1, width: 1920, height: 1080 }),
+      await generateSampleVideo({
+        durationSeconds: 1,
+        width: 1920,
+        height: 1080,
+      }),
       'video/mp4',
     );
 

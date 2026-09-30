@@ -121,7 +121,10 @@ describe('VideosService (integration — DB + MinIO)', () => {
       ]);
 
       const resigned = await service.signUploadParts(draft.slug, user.id, [2]);
-      const res = await putPart(resigned.parts[0].url, Buffer.alloc(5 * MIB, 2));
+      const res = await putPart(
+        resigned.parts[0].url,
+        Buffer.alloc(5 * MIB, 2),
+      );
       expect(res.status).toBe(200);
 
       const after = await service.getUploadSession(draft.slug, user.id);

@@ -34,8 +34,7 @@ export function applyVideoTestEnv(
 }
 
 export async function createVideosTestApp(
-  customize: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) =>
-    b,
+  customize: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b,
   extraImports: any[] = [],
 ): Promise<INestApplication<App>> {
   const moduleFixture = await customize(

@@ -87,7 +87,14 @@ function setup() {
     videoCfg,
     queue as any,
   );
-  return { service, manager, videosRepository, channelsService, storage, queue };
+  return {
+    service,
+    manager,
+    videosRepository,
+    channelsService,
+    storage,
+    queue,
+  };
 }
 
 describe('computePartCount', () => {
@@ -393,7 +400,8 @@ describe('VideosService reads (visibility)', () => {
       makeVideo({
         status,
         original_filename: 'holiday.mp4',
-        thumbnail_key: status === VideoStatus.READY ? 'thumbnails/video-1.jpg' : null,
+        thumbnail_key:
+          status === VideoStatus.READY ? 'thumbnails/video-1.jpg' : null,
       }),
     );
     return ctx;
@@ -401,9 +409,11 @@ describe('VideosService reads (visibility)', () => {
 
   it.each(statuses)('owner sees a %s video', async (status) => {
     const { service } = withVideo(status);
-    await expect(service.getVideo('slug0000001', owner)).resolves.toMatchObject({
-      status,
-    });
+    await expect(service.getVideo('slug0000001', owner)).resolves.toMatchObject(
+      {
+        status,
+      },
+    );
   });
 
   it.each(statuses.filter((s) => s !== VideoStatus.READY))(
@@ -447,7 +457,11 @@ describe('VideosService reads (visibility)', () => {
     expect(storage.presignGetObject).toHaveBeenNthCalledWith(
       2,
       'videos/video-1/original',
-      { ttlSeconds: 21600, audience: 'public', downloadFileName: 'holiday.mp4' },
+      {
+        ttlSeconds: 21600,
+        audience: 'public',
+        downloadFileName: 'holiday.mp4',
+      },
     );
   });
 

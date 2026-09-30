@@ -1,9 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import {
-  Inject,
-  Logger,
-  OnApplicationBootstrap,
-} from '@nestjs/common';
+import { Inject, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { Job, UnrecoverableError } from 'bullmq';
 import videoConfig from '../config/video.config';
@@ -16,10 +12,7 @@ import {
 } from '../videos/videos.constants';
 import { VideosService } from '../videos/videos.service';
 import { InvalidMediaError } from './media.errors';
-import {
-  MediaProbeService,
-  thumbnailTimestamp,
-} from './media-probe.service';
+import { MediaProbeService, thumbnailTimestamp } from './media-probe.service';
 
 /** Lifetime of the internal URL FFmpeg reads the original from. */
 const SOURCE_URL_TTL_SECONDS = 3600;
