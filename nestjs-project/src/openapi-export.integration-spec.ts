@@ -128,4 +128,33 @@ describe('exportSpec (integration)', () => {
       }
     }
   });
+
+  it('documents the video endpoints, protected and public', () => {
+    const paths = document.paths as Record<
+      string,
+      Record<string, Record<string, unknown>>
+    >;
+    const expected: Array<[string, string, boolean]> = [
+      ['/videos', 'post', true],
+      ['/videos/{slug}/upload', 'get', true],
+      ['/videos/{slug}/upload/parts', 'post', true],
+      ['/videos/{slug}/upload/complete', 'post', true],
+      ['/videos/{slug}', 'get', false],
+      ['/videos/{slug}/stream', 'get', false],
+      ['/videos/{slug}/download', 'get', false],
+      ['/videos/{slug}/thumbnail', 'get', false],
+    ];
+
+    for (const [path, method, isProtected] of expected) {
+      const operation = paths[path]?.[method];
+      expect(operation).toBeDefined();
+      expect(operation?.tags).toEqual(['videos']);
+      const security = operation?.security as
+        | Array<Record<string, unknown>>
+        | undefined;
+      expect(!!security?.some((req) => 'access-token' in req)).toBe(
+        isProtected,
+      );
+    }
+  });
 });

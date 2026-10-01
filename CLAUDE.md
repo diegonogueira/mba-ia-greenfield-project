@@ -19,12 +19,23 @@ This is a monorepo with two main areas:
 See `docs/diagrams/software-arch.mermaid` for the full diagram. Key containers:
 
 - **Frontend** (Next.js) → calls API via REST, streams from Object Storage
-- **API** (Nest.js) → business rules, auth, reads/writes DB, uploads to storage, publishes jobs to queue, sends emails
+- **API** (Nest.js) → business rules, auth, reads/writes DB, signs storage URLs, publishes jobs to queue, sends emails
 - **Video Worker** (FFmpeg) → consumes jobs from queue, processes videos, updates DB and storage
 - **Database** (PostgreSQL) → users, channels, videos, comments, likes
 - **Object Storage** (S3/MinIO) → video files and thumbnails
-- **Message Queue** (TBD) → video processing job queue
+- **Message Queue** (BullMQ on Redis) → video processing job queue
 - **Email Service** (SMTP) → account confirmation and password recovery
+
+## Videos (Phase 03)
+
+Implemented in `nestjs-project/` (decisions: `docs/decisions/technical-decisions-phase-03-videos.md`; plan: `docs/phases/phase-03-videos/`):
+
+- **Upload (up to 10 GiB)** — direct to storage via S3 multipart with presigned part URLs; the file never goes through the API. `POST /videos` pre-registers the video as `draft` and returns the part URLs; `POST /videos/{slug}/upload/complete` closes the upload and enqueues processing.
+- **Status lifecycle** — `draft → processing → ready | failed` (compare-and-set transitions). Publication/visibility is not part of Phase 03.
+- **Queue + worker** — job `process-video` on queue `video-processing` (BullMQ/Redis, 3 attempts with exponential backoff). The `video-worker` container runs `nestjs-project/src/worker.ts`, which extracts duration/metadata with `ffprobe` and a JPEG thumbnail with `ffmpeg`, both reading the object through a presigned URL.
+- **Unique URL** — random 11-char base64url `slug` with a unique index.
+- **Streaming / download / thumbnail** — `GET /videos/{slug}/stream|download|thumbnail` answer `302` to short-lived presigned URLs; the storage serves HTTP range requests (`206`).
+- **Storage layout** — single private bucket (`S3_BUCKET`, default `streamtube-media`): `videos/{videoId}/original` and `thumbnails/{videoId}.jpg`.
 
 ## Docker Networking
 
@@ -34,6 +45,8 @@ Inside a container, `localhost` refers to the container itself, not the host mac
 
 - **Correct:** `DB_HOST=db` (the Compose service name)
 - **Wrong:** `DB_HOST=localhost`
+
+**One exception — addresses handed to clients outside Docker.** Presigned storage URLs are used by the browser/curl on the host, which cannot resolve `minio`. They are signed for `S3_PUBLIC_ENDPOINT` (default `http://localhost:9000`); every service-to-service call (API, worker) uses `S3_ENDPOINT=http://minio:9000`. Never use `S3_PUBLIC_ENDPOINT` for server-side calls.
 
 This applies to all environment variables, configuration files, and code that references service hosts.
 

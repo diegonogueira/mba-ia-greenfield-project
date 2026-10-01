@@ -37,89 +37,49 @@ How each external system is handled in tests. These strategies were confirmed wi
 
 ---
 
-## Object Storage — Local Filesystem
+## Object Storage — Real MinIO (Docker)
 
-**Strategy:** Local filesystem storage in development and tests. S3 in production.
+**Strategy:** Real S3-compatible storage — the `minio` service of `compose.yaml` (bucket created by `minio-init`). No filesystem adapter and no SDK mocks: the upload protocol (S3 multipart + presigned part URLs) and delivery (presigned GET, `206` range responses) only exist on a real S3 API (`phase-03-videos/TD-11`).
 
-**Approach:**
-- The storage layer should use an abstraction (e.g., `StorageService` interface) that allows switching between local filesystem and S3
-- In tests, use the local filesystem adapter — no mocking needed
-- Use a temporary directory for test uploads: `os.tmpdir()` or a dedicated `test-uploads/` directory
-- Clean up test files in `afterAll`
+**Access:** `StorageService` (`src/storage/storage.service.ts`) is the only storage client. It talks to `S3_ENDPOINT` (`http://minio:9000`) and signs client-facing URLs for `S3_PUBLIC_ENDPOINT`. The test process runs inside the Compose network and cannot reach the host's `localhost:9000`, so tests sign "public" URLs for the in-network endpoint:
 
-**Setup pattern:**
 ```typescript
-// In test module setup
-{
-  provide: 'STORAGE_CONFIG',
-  useValue: {
-    driver: 'local',
-    basePath: path.join(os.tmpdir(), 'streamtube-test-uploads'),
-  },
-}
+import { testStorageConfig, usePublicEndpointInsideNetwork, putPart } from '../test/storage';
+
+// Plain service (integration):
+const storage = new StorageService(testStorageConfig());
+
+// Nest module / AppModule bootstrap: set the env before compiling
+usePublicEndpointInsideNetwork();
 ```
 
-**Integration test:**
-```typescript
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+**Test isolation:**
+- Use random keys (`test/${randomUUID()}`) and delete the objects you create in `afterAll` / at the end of the test.
+- Abort multipart uploads a test leaves open (`abortMultipartUpload`); MinIO also expires stale incomplete uploads on its own.
+- Upload parts with `putPart(url, buffer)` — the same HTTP `PUT` a browser does against a presigned URL.
 
-describe('StorageService (integration)', () => {
-  const testDir = path.join(os.tmpdir(), 'streamtube-test-uploads');
-
-  afterAll(() => {
-    fs.rmSync(testDir, { recursive: true, force: true });
-  });
-
-  it('should upload and retrieve a file', async () => {
-    const buffer = Buffer.from('test content');
-    const key = await storageService.upload(buffer, 'test.txt');
-
-    const retrieved = await storageService.get(key);
-    expect(retrieved.toString()).toBe('test content');
-  });
-});
-```
+**Media fixtures:** generate videos at test time with `generateSampleVideo()` (`src/test/sample-video.ts`, `ffmpeg -f lavfi`); FFmpeg is installed in the `nestjs-api` image. Never commit binary fixtures.
 
 ---
 
-## Message Queue — Real (Docker)
+## Message Queue — Real Redis + BullMQ (Docker)
 
-**Strategy:** Real message broker in Docker. The specific technology is TBD per the architecture diagram (likely BullMQ with Redis or RabbitMQ).
+**Strategy:** Real broker — the `redis` service of `compose.yaml` with BullMQ (`@nestjs/bullmq`), queue `video-processing`, job `process-video`.
 
-**When the queue technology is chosen, configure:**
-- A queue broker service in `compose.yaml` (e.g., Redis for BullMQ, RabbitMQ for AMQP)
-- Test isolation: use dedicated test queues or clean queues between tests
-- For publisher tests: assert the job is enqueued with correct data
-- For consumer tests: submit a job and assert the processing outcome
+**Test isolation:** tests use their own `QUEUE_PREFIX` (e.g. `bull-test`, `bull-test-integration`), set before the module compiles, so the running `video-worker` container (prefix `bull`) never consumes test jobs. Clean with `queue.obliterate({ force: true })` in `beforeEach`/`afterAll`.
 
-**Setup pattern (BullMQ example):**
+**Setup pattern:**
 ```typescript
-// In test module
-BullModule.forRoot({
-  connection: {
-    host: process.env.REDIS_HOST ?? 'localhost',
-    port: Number(process.env.REDIS_PORT ?? 6379),
-  },
-}),
-BullModule.registerQueue({ name: 'video-processing' }),
+import { getQueueToken } from '@nestjs/bullmq';
+import { bullRootModule } from '../queue/bull-root.module';
+
+process.env.QUEUE_PREFIX = 'bull-test-integration';
+// imports: [ConfigModule.forRoot({ isGlobal: true, load: [queueConfig, ...] }), bullRootModule(), VideosModule]
+const queue = module.get<Queue>(getQueueToken('video-processing'));
 ```
 
-```typescript
-describe('VideoService (integration - queue)', () => {
-  it('should enqueue a processing job on upload', async () => {
-    await videoService.upload(videoData);
-
-    const queue = module.get<Queue>(getQueueToken('video-processing'));
-    const jobs = await queue.getJobs(['waiting']);
-    expect(jobs).toHaveLength(1);
-    expect(jobs[0].data).toEqual(
-      expect.objectContaining({ videoId: expect.any(String) }),
-    );
-  });
-});
-```
+- **Publisher tests:** assert the job exists with the expected id/data (`queue.getJob(videoId)` — the job id is the video id).
+- **Consumer tests:** call `VideoProcessor.process(job)` directly with `{ data, attemptsMade, opts: { attempts } }` against real DB/MinIO/FFmpeg (`src/video-processing/video.processor.integration-spec.ts`); for the full pipeline, import `VideoProcessingModule` next to `AppModule` so the processor consumes the test prefix in-process (`test/videos-read.e2e-spec.ts`).
 
 ---
 
