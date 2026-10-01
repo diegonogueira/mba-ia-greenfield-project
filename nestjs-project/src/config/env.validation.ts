@@ -1,5 +1,8 @@
 import * as Joi from 'joi';
 
+// S3 rejects multipart parts smaller than 5 MiB (except the last one).
+const MIN_MULTIPART_PART_SIZE_BYTES = 5 * 1024 * 1024;
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test')
@@ -19,6 +22,23 @@ export const envValidationSchema = Joi.object({
   APP_URL: Joi.string().uri().default('http://localhost:3000'),
   MAIL_HOST: Joi.string().default('mailpit'),
   MAIL_PORT: Joi.number().default(1025),
-  MAIL_FROM: Joi.string().default('"StreamTube" <noreply@streamtube.com>'),
+  MAIL_FROM: Joi.string().default('noreply@streamtube.com'),
   SWAGGER_ENABLED: Joi.string().valid('true', 'false').default('false'),
+  S3_ENDPOINT: Joi.string().uri().default('http://minio:9000'),
+  S3_PUBLIC_ENDPOINT: Joi.string().uri().default('http://localhost:9000'),
+  S3_REGION: Joi.string().default('us-east-1'),
+  S3_ACCESS_KEY_ID: Joi.string().required(),
+  S3_SECRET_ACCESS_KEY: Joi.string().required(),
+  S3_BUCKET: Joi.string().default('streamtube-media'),
+  S3_FORCE_PATH_STYLE: Joi.string().valid('true', 'false').default('true'),
+  REDIS_HOST: Joi.string().default('redis'),
+  REDIS_PORT: Joi.number().port().default(6379),
+  QUEUE_PREFIX: Joi.string().default('bull'),
+  VIDEO_UPLOAD_PART_SIZE_BYTES: Joi.number()
+    .integer()
+    .min(MIN_MULTIPART_PART_SIZE_BYTES)
+    .default(67108864),
+  VIDEO_UPLOAD_URL_TTL_SECONDS: Joi.number().integer().min(1).default(3600),
+  VIDEO_PLAYBACK_URL_TTL_SECONDS: Joi.number().integer().min(1).default(21600),
+  VIDEO_WORKER_CONCURRENCY: Joi.number().integer().min(1).default(1),
 });

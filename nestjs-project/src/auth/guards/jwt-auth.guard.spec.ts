@@ -2,6 +2,8 @@ import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
+import { IS_OPTIONAL_AUTH_KEY } from '../decorators/optional-auth.decorator';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 const TEST_SECRET = 'test-secret';
@@ -87,5 +89,58 @@ describe('JwtAuthGuard', () => {
       headers: { authorization: `Bearer ${expiredToken}` },
     });
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+  });
+
+  describe('@Public() + @OptionalAuth() routes', () => {
+    function setMetadata(metadata: Record<string, boolean>): void {
+      mockReflector.getAllAndOverride.mockImplementation(
+        (key: string) => metadata[key] ?? false,
+      );
+    }
+
+    beforeEach(() => {
+      setMetadata({ [IS_PUBLIC_KEY]: true, [IS_OPTIONAL_AUTH_KEY]: true });
+    });
+
+    it('allows anonymous access when no Authorization header is sent', async () => {
+      const request: Record<string, unknown> = { headers: {} };
+
+      await expect(guard.canActivate(makeContext(request))).resolves.toBe(true);
+      expect(request.user).toBeUndefined();
+    });
+
+    it('attaches the payload when a valid token is sent', async () => {
+      const token = jwtService.sign({ sub: 'owner-1', email: 'o@example.com' });
+      const request: Record<string, unknown> = {
+        headers: { authorization: `Bearer ${token}` },
+      };
+
+      await expect(guard.canActivate(makeContext(request))).resolves.toBe(true);
+      expect((request.user as Record<string, unknown>)?.sub).toBe('owner-1');
+    });
+
+    it('rejects an invalid token instead of silently ignoring it', async () => {
+      const ctx = makeContext({ headers: { authorization: 'Bearer invalid' } });
+      await expect(guard.canActivate(ctx)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('rejects a non-Bearer Authorization header', async () => {
+      const ctx = makeContext({ headers: { authorization: 'Basic abc' } });
+      await expect(guard.canActivate(ctx)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('keeps plain @Public() routes ignoring the Authorization header', async () => {
+      setMetadata({ [IS_PUBLIC_KEY]: true });
+      const request: Record<string, unknown> = {
+        headers: { authorization: 'Bearer invalid' },
+      };
+
+      await expect(guard.canActivate(makeContext(request))).resolves.toBe(true);
+      expect(request.user).toBeUndefined();
+    });
   });
 });

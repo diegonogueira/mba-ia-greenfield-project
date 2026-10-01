@@ -118,3 +118,66 @@ Content-Type: {{contentType}}
   "token": "{{resetToken}}",
   "new_password": "new-password123"
 }
+
+
+###
+# ─────────────────────────────────────────────
+# VÍDEOS (Fase 03) — upload direto no storage, processamento e streaming
+# ─────────────────────────────────────────────
+# Fluxo: (10) cria o rascunho e recebe URLs pré-assinadas → envie cada parte com
+# PUT direto no MinIO (o arquivo não passa pela API), por exemplo:
+#   dd if=video.mp4 bs=67108864 skip=0 count=1 | curl -X PUT --data-binary @- "<upload.parts[0].url>"
+# → (13) conclui → o video-worker processa (status processing → ready) → (14..17).
+
+@videoSlug = {{createVideo.response.body.$.slug}}
+
+### 10. Iniciar upload — pré-cadastra o vídeo como draft e devolve as URLs das partes
+# sizeBytes = tamanho exato do arquivo (máx. 10737418240)
+# @name createVideo
+POST {{baseUrl}}/videos
+Authorization: Bearer {{accessToken}}
+Content-Type: {{contentType}}
+
+{
+  "title": "Meu vídeo",
+  "fileName": "video.mp4",
+  "mimeType": "video/mp4",
+  "sizeBytes": 80140966
+}
+
+
+### 11. Estado da sessão de upload (partes já recebidas pelo storage — para retomar)
+GET {{baseUrl}}/videos/{{videoSlug}}/upload
+Authorization: Bearer {{accessToken}}
+
+
+### 12. Re-assinar URLs de partes (expiradas ou a reenviar)
+POST {{baseUrl}}/videos/{{videoSlug}}/upload/parts
+Authorization: Bearer {{accessToken}}
+Content-Type: {{contentType}}
+
+{
+  "partNumbers": [1, 2]
+}
+
+
+### 13. Concluir o upload — draft → processing e job enfileirado (202)
+POST {{baseUrl}}/videos/{{videoSlug}}/upload/complete
+Authorization: Bearer {{accessToken}}
+
+
+### 14. Metadados e status (público quando ready; o dono vê qualquer status)
+GET {{baseUrl}}/videos/{{videoSlug}}
+Authorization: Bearer {{accessToken}}
+
+
+### 15. Streaming — 302 para URL pré-assinada; o storage responde Range com 206
+GET {{baseUrl}}/videos/{{videoSlug}}/stream
+
+
+### 16. Download — 302 para URL com Content-Disposition: attachment
+GET {{baseUrl}}/videos/{{videoSlug}}/download
+
+
+### 17. Thumbnail — 302 para o JPEG gerado pelo worker
+GET {{baseUrl}}/videos/{{videoSlug}}/thumbnail
